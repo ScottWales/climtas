@@ -1,0 +1,37 @@
+{% set data = load_setup_py_data() %}
+
+package:
+    name: catalysis
+    version: {{ data.get('version') }}
+
+source:
+    path: .
+
+
+build:
+    script: "{{ PYTHON }} -m pip install . --no-deps"
+    noarch: python
+    number: {{ GIT_DESCRIBE_NUMBER }}
+
+
+requirements:
+    host:
+        - python
+        - pip
+    run:
+        - python >=3.6
+
+test:
+    imports:
+        - catalysis
+    requires:
+        - pytest
+        - pytest-cov
+    files:
+        - test
+        - src
+    script_env:
+        - TEST_OUTPUT
+    commands:
+        - py.test --cov=src --junit-xml=${TEST_OUTPUT:-.}/pytest/junit.xml --cov-report=xml:${TEST_OUTPUT:-.}/cov/coverage.xml
+

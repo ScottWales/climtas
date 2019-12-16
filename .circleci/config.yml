@@ -1,0 +1,25 @@
+version: 2
+jobs:
+    build:
+        docker:
+            - image: continuumio/miniconda3
+        environment:
+            TEST_OUTPUT: /tmp/artifacts
+        steps:
+            - checkout
+            - run: conda install conda-build conda-verify codecov black
+            - run: |
+                mkdir -p ${TEST_OUTPUT}
+                conda build .
+            - run:
+                name: Checking if 'black' needs to be run
+                command: black --check --diff .
+                when: always
+            - run: 
+                name: Upload codecov
+                command: codecov -f ${TEST_OUTPUT}/cov/coverage.xml
+                when: always
+            - store_artifacts:
+                path: /tmp/artifacts
+            - store_test_results:
+                path: /tmp/artifacts/pytest
