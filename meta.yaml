@@ -1,7 +1,7 @@
 {% set data = load_setup_py_data() %}
 
 package:
-    name: catalysis
+    name: climtas
     version: {{ data.get('version') }}
 
 source:
@@ -23,7 +23,7 @@ requirements:
 
 test:
     imports:
-        - catalysis
+        - climtas
     requires:
         - pytest
         - pytest-cov

@@ -1,2 +1,2 @@
 include versioneer.py
-include src/catalysis/_version.py
+include src/climtas/_version.py
