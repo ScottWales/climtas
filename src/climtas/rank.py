@@ -17,19 +17,19 @@
 import numpy
 import xarray
 
+
 def rank_by_dayofyear(da):
     def group_helper(x):
         # Xarray tests the return shape of the function by calling it with a
         # size 0 array, we don't change the shape
         if x.size == 0:
             return x
-        
-        group = x.groupby('time.dayofyear')
+
+        group = x.groupby("time.dayofyear")
         ranking = group.map(numpy.argsort, shortcut=True)
         return ranking
 
-    time_chunked = da.chunk({'time': None})
+    time_chunked = da.chunk({"time": None})
     ranking = time_chunked.map_blocks(group_helper)
 
     return ranking
-

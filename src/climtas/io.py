@@ -19,6 +19,7 @@ import dask
 
 from .utils import optimized_dask_get
 
+
 def to_netcdf_chunkwise(da, path, complevel=4):
     """
     Save a DataArray to file by calculating each chunk separately (rather than
@@ -30,12 +31,14 @@ def to_netcdf_chunkwise(da, path, complevel=4):
     """
     ds = xarray.Dataset({da.name: da})
 
-    encoding = {da.name: {
-        'zlib': True,
-        'shuffle': True,
-        'complevel': complevel,
-        'chunksizes': da.data.chunksize,
-        }}
+    encoding = {
+        da.name: {
+            "zlib": True,
+            "shuffle": True,
+            "complevel": complevel,
+            "chunksizes": da.data.chunksize,
+        }
+    }
 
     f = ds.to_netcdf(path, encoding=encoding, compute=False)
 
@@ -46,7 +49,7 @@ def to_netcdf_chunkwise(da, path, complevel=4):
         if v[0] == dask.array.core.store_chunk:
             new_graph[k] = optimized_dask_get(old_graph, k)
             continue
-            
+
         new_graph[k] = v
 
     # Finalise

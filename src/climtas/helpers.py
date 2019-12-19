@@ -17,23 +17,27 @@
 import numpy
 import dask
 
+
 def chunk_count(da):
     """
     Returns the number of chunks in the dataset
     """
     return numpy.prod([len(c) for c in da.chunks])
 
+
 def chunk_size(da):
     """
     Returns the size of the first dask chunk in the dataset
     """
-    return numpy.prod(da.data.chunksize)*da.data.itemsize
+    return numpy.prod(da.data.chunksize) * da.data.itemsize
+
 
 def graph_size(da):
     """
     Returns number of nodes in the dask graph
     """
     return len(da.__dask_graph__())
+
 
 def dask_report(da):
     """
@@ -42,6 +46,7 @@ def dask_report(da):
     print("Chunk Count:", chunk_count(da))
     print("Chunk Size:", dask.utils.format_bytes(chunk_size(da)))
     print("Graph Size:", graph_size(da))
+
 
 def optimized_dask_get(graph, keys):
     """
