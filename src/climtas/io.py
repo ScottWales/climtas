@@ -17,7 +17,7 @@
 import xarray
 import dask
 
-from .utils import optimized_dask_get
+from .helpers import optimized_dask_get
 
 
 def to_netcdf_chunkwise(da, path, complevel=4):
