@@ -44,7 +44,7 @@ def to_netcdf_throttled(ds, path, complevel=4, max_tasks=None, show_progress=Tru
     if isinstance(ds, xarray.DataArray):
         ds = ds.to_dataset()
 
-    for k,v in ds.data_vars.items():
+    for k, v in ds.data_vars.items():
         encoding[k] = {
             "zlib": True,
             "shuffle": True,
@@ -69,6 +69,7 @@ def to_netcdf_throttled(ds, path, complevel=4, max_tasks=None, show_progress=Tru
 
     if show_progress:
         from tqdm.auto import tqdm
+
         store_keys = tqdm(store_keys)
 
     throttle_futures(old_graph, store_keys, max_tasks=None)

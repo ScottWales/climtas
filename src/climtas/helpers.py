@@ -90,14 +90,18 @@ def throttle_futures(graph, key_list, optimizer=None, max_tasks=None):
 
     # Build up initial max_tasks future list
     for i in range(min(max_tasks, len(key_list))):
-        futures.append(optimized_dask_get(graph, next(keys), optimizer=optimizer, sync=False))
+        futures.append(
+            optimized_dask_get(graph, next(keys), optimizer=optimizer, sync=False)
+        )
 
     # Add new futures as the existing ones are completed
     ac = dask.distributed.as_completed(futures, with_results=True)
     results = []
     for f, result in ac:
         try:
-            ac.add(optimized_dask_get(graph, next(keys), optimizer=optimizer, sync=False))
+            ac.add(
+                optimized_dask_get(graph, next(keys), optimizer=optimizer, sync=False)
+            )
         except StopIteration:
             pass
         results.append(result)
