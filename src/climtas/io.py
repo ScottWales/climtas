@@ -36,7 +36,7 @@ def to_netcdf_chunkwise(da, path, complevel=4):
             "zlib": True,
             "shuffle": True,
             "complevel": complevel,
-            "chunksizes": getattr(da.data, 'chunksize', None),
+            "chunksizes": getattr(da.data, "chunksize", None),
         }
     }
 

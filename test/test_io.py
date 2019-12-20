@@ -19,18 +19,18 @@ import numpy
 import dask
 from climtas import io
 
-def test_to_netcdf_chunkwise(tmpdir):
 
+def test_to_netcdf_chunkwise(tmpdir):
     def helper(path, data):
-        da = xarray.DataArray(data, dims=['t','x','y'], name='test')
+        da = xarray.DataArray(data, dims=["t", "x", "y"], name="test")
         io.to_netcdf_chunkwise(da, path)
         out = xarray.open_dataset(str(path)).test
         xarray.testing.assert_identical(da, out)
 
-    path = tmpdir / 'numpy.nc'
-    data = numpy.zeros([10,10,10])
+    path = tmpdir / "numpy.nc"
+    data = numpy.zeros([10, 10, 10])
     helper(path, data)
 
-    path = tmpdir / 'dask.nc'
-    data = dask.array.zeros([10,10,10])
+    path = tmpdir / "dask.nc"
+    data = dask.array.zeros([10, 10, 10])
     helper(path, data)
