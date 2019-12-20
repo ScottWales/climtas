@@ -16,7 +16,10 @@
 
 import numpy
 import xarray
+import scipy.stats
 
+def rank_along_axis(da, axis):
+    return numpy.apply_along_axis(scipy.stats.rankdata, axis, da)
 
 def rank_by_dayofyear(da):
     def group_helper(x):
@@ -25,8 +28,10 @@ def rank_by_dayofyear(da):
         if x.size == 0:
             return x
 
+        axis = da.get_axis_num('time')
         group = x.groupby("time.dayofyear")
-        ranking = group.map(numpy.argsort, shortcut=True)
+        ranking = group.map(rank_along_axis, axis=axis, shortcut=True)
+
         return ranking
 
     time_chunked = da.chunk({"time": None})
