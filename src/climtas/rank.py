@@ -40,7 +40,7 @@ def rank_by_dayofyear(da):
     Leap years will contribute their Dec. 31 values to day 366
     """
     r = apply_by_dayofyear(da, rank_along_dim)
-    r.name += "_rank"
+    r.name = f"{r.name}_rank"
     r.attrs["units"] = "1"
     r.attrs["cell_methods"] = "time: rank_by_dayofyear"
     return r
@@ -54,7 +54,7 @@ def rank_by_monthday(da):
     Leap years will contribute their Fe 29 values to Feb. 29
     """
     r = apply_by_monthday(da, rank_along_dim)
-    r.name += "_rank"
+    r.name = f"{r.name}_rank"
     r.attrs["units"] = "1"
     r.attrs["cell_methods"] = "time: rank_by_monthday"
     return r
