@@ -48,7 +48,7 @@ def dask_report(da):
     print("Graph Size:", graph_size(da))
 
 
-def optimized_dask_get(graph, keys):
+def optimized_dask_get(graph, keys, optimizer=None, sync=True):
     """
     Compute a dask low-level graph with some optimization
     """
@@ -57,10 +57,52 @@ def optimized_dask_get(graph, keys):
     except ValueError:
         client = dask
 
-    graph, _ = dask.optimization.cull(graph, keys)
-    graph, _ = dask.optimization.fuse(graph, keys)
+    if optimizer:
+        graph, _ = optimizer(graph, keys)
+    else:
+        graph, _ = dask.optimization.cull(graph, keys)
+        graph, _ = dask.optimization.fuse(graph, keys)
 
-    return client.get(graph, keys)
+    return client.get(graph, keys, sync=sync)
+
+
+def throttle_futures(graph, key_list, optimizer=None, max_tasks=None):
+    """
+    Run futures in parallel, with a maximum of 'max_tasks' at once
+
+    Args:
+        graph: Dask task graph
+        key_list: Iterable of keys from 'graph' to compute
+        max_tasks: Maximum number of tasks to run at once (if none use the
+            number of workers)
+    """
+    try:
+        client = dask.distributed.get_client()
+    except ValueError:
+        # No cluster, run in serial
+        return [optimized_dask_get(graph, k) for k in key_list]
+
+    futures = []
+    keys = iter(key_list)
+
+    if max_tasks is None:
+        max_tasks = len(client.cluster.workers) + 1
+
+    # Build up initial max_tasks future list
+    for i in range(min(max_tasks, len(key_list))):
+        futures.append(optimized_dask_get(graph, next(keys), optimizer=optimizer, sync=False))
+
+    # Add new futures as the existing ones are completed
+    ac = dask.distributed.as_completed(futures, with_results=True)
+    results = []
+    for f, result in ac:
+        try:
+            ac.add(optimized_dask_get(graph, next(keys), optimizer=optimizer, sync=False))
+        except StopIteration:
+            pass
+        results.append(result)
+
+    return results
 
 
 def apply_by_dayofyear(da, func, **kwargs):
@@ -71,7 +113,7 @@ def apply_by_dayofyear(da, func, **kwargs):
     Rechunks the data to avoid excessive Dask chunks
     """
 
-    def group_helper(x):
+    def chunk_apply_by_dayofyear(x):
         # Xarray tests the return shape of the function by calling it with a
         # size 0 array, we don't change the shape
         if x.size == 0:
@@ -83,7 +125,7 @@ def apply_by_dayofyear(da, func, **kwargs):
         return ranking
 
     time_chunked = da.chunk({"time": None})
-    ranking = time_chunked.map_blocks(group_helper)
+    ranking = time_chunked.map_blocks(chunk_apply_by_dayofyear)
 
     return ranking
 
@@ -96,7 +138,7 @@ def apply_by_monthday(da, func, **kwargs):
     Rechunks the data to avoid excessive Dask chunks
     """
 
-    def group_helper(x):
+    def chunk_apply_by_monthday(x):
         # Xarray tests the return shape of the function by calling it with a
         # size 0 array, we don't change the shape
         if x.size == 0:
@@ -111,6 +153,6 @@ def apply_by_monthday(da, func, **kwargs):
         return ranking
 
     time_chunked = da.chunk({"time": None})
-    ranking = time_chunked.map_blocks(group_helper)
+    ranking = time_chunked.map_blocks(chunk_apply_by_monthday)
 
     return ranking

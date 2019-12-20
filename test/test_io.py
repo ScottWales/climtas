@@ -23,7 +23,7 @@ from climtas import io
 def test_to_netcdf_chunkwise(tmpdir):
     def helper(path, data):
         da = xarray.DataArray(data, dims=["t", "x", "y"], name="test")
-        io.to_netcdf_chunkwise(da, path)
+        io.to_netcdf_throttled(da, path)
         out = xarray.open_dataset(str(path)).test
         xarray.testing.assert_identical(da, out)
 

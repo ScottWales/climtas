@@ -17,40 +17,61 @@
 import xarray
 import dask
 
-from .helpers import optimized_dask_get
+from .helpers import optimized_dask_get, throttle_futures
 
 
-def to_netcdf_chunkwise(da, path, complevel=4):
+def to_netcdf_throttled(ds, path, complevel=4, max_tasks=None, show_progress=True):
     """
     Save a DataArray to file by calculating each chunk separately (rather than
     submitting the whole Dask graph at once). This may be helpful when chunks
     are large, e.g. doing an operation on dayofyear grouping for a long timeseries.
 
-    Chunks are not calculated in parallel, so it may be inefficient with many
-    processors
-    """
-    ds = xarray.Dataset({da.name: da})
+    Chunks are calculated with at most 'max_tasks' chunks running in parallel -
+    this defaults to the number of workers in your dask.distributed.Client, or
+    is 1 if distributed is not being used.
 
-    encoding = {
-        da.name: {
+    Args:
+        da: xarray.Dataset to save
+        path: Path to save to
+        complevel: NetCDF compression level
+        max_tasks: Maximum tasks to run at once (default number of distributed
+            workers)
+        show_progress: Show a progress bar with estimated completion time
+    """
+
+    encoding = {}
+
+    if isinstance(ds, xarray.DataArray):
+        ds = ds.to_dataset()
+
+    for k,v in ds.data_vars.items():
+        encoding[k] = {
             "zlib": True,
             "shuffle": True,
             "complevel": complevel,
-            "chunksizes": getattr(da.data, "chunksize", None),
+            "chunksizes": getattr(v.data, "chunksize", None),
         }
-    }
 
     f = ds.to_netcdf(str(path), encoding=encoding, compute=False)
 
-    # Run each of the save operations one at a time, then finalize
     old_graph = f.__dask_graph__()
     new_graph = {}
+    store_keys = []
+
+    # Pull out the 'store_chunk' operations from the graph and run them
+    # throttled
     for k, v in old_graph.items():
         if v[0] == dask.array.core.store_chunk:
-            new_graph[k] = optimized_dask_get(old_graph, k)
+            new_graph[k] = None
+            store_keys.append(k)
             continue
-
         new_graph[k] = v
+
+    if show_progress:
+        from tqdm.auto import tqdm
+        store_keys = tqdm(store_keys)
+
+    throttle_futures(old_graph, store_keys, max_tasks=None)
 
     # Finalise
     ff = optimized_dask_get(new_graph, list(f.__dask_layers__()))

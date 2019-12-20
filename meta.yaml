@@ -24,6 +24,7 @@ requirements:
         - netcdf4
         - pandas
         - scipy
+        - tqdm
         - xarray
 
 test:
