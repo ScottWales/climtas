@@ -35,6 +35,7 @@ def test_to_netcdf_throttled(tmpdir, distributed_client):
     data = dask.array.zeros([10, 10, 10])
     helper(path, data)
 
+
 def test_to_netcdf_throttled_serial(tmpdir):
     def helper(path, data):
         da = xarray.DataArray(data, dims=["t", "x", "y"], name="test")
