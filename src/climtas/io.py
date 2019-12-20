@@ -14,6 +14,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+"""Functions for reading and saving data
+
+These functions try to use sensible chunking both for dask objects read and
+netcdf files written
+"""
+
 import xarray
 import dask
 
@@ -31,12 +37,12 @@ def to_netcdf_throttled(ds, path, complevel=4, max_tasks=None, show_progress=Tru
     is 1 if distributed is not being used.
 
     Args:
-        da: xarray.Dataset to save
-        path: Path to save to
-        complevel: NetCDF compression level
-        max_tasks: Maximum tasks to run at once (default number of distributed
+        da (:class:`xarray.Dataset` or :class:`xarray.DataArray`): Data to save
+        path (:class:`str` or :class:`pathlib.Path`): Path to save to
+        complevel (:class:`int`): NetCDF compression level
+        max_tasks (:class:`int`): Maximum tasks to run at once (default number of distributed
             workers)
-        show_progress: Show a progress bar with estimated completion time
+        show_progress (:class:`bool`): Show a progress bar with estimated completion time
     """
 
     encoding = {}
@@ -92,4 +98,4 @@ def to_netcdf_throttled(ds, path, complevel=4, max_tasks=None, show_progress=Tru
     throttle_futures(old_graph, store_keys, max_tasks=None)
 
     # Finalise any remaining operations with 'new_graph'
-    return optimized_dask_get(new_graph, list(f.__dask_layers__()))
+    optimized_dask_get(new_graph, list(f.__dask_layers__()))

@@ -41,7 +41,13 @@ release = climtas.__version__
 # Add any Sphinx extension module names here, as strings. They can be
 # extensions coming with Sphinx (named 'sphinx.ext.*') or your custom
 # ones.
-extensions = ["sphinx.ext.autodoc", "sphinx.ext.doctest", "sphinx.ext.coverage", "sphinx.ext.napoleon"]
+extensions = [
+    "sphinx.ext.autodoc",
+    "sphinx.ext.doctest",
+    "sphinx.ext.coverage",
+    "sphinx.ext.napoleon",
+    "sphinx.ext.intersphinx",
+]
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ["_templates"]
@@ -70,6 +76,11 @@ exclude_patterns = ["_build", "Thumbs.db", ".DS_Store"]
 # The name of the Pygments (syntax highlighting) style to use.
 pygments_style = "sphinx"
 
+intersphinx_mapping = {
+    "python": ("https://docs.python.org/3", None),
+    "xarray": ("http://xarray.pydata.org/en/stable/", None),
+    "dask": ("https://docs.dask.org/en/stable/", None),
+}
 
 # -- Options for HTML output -------------------------------------------------
 

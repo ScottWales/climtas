@@ -14,11 +14,7 @@ time domain with custom functions for `Xarray <https://xarray.pydata.org>`_ and
    :maxdepth: 2
    :caption: Contents:
 
-.. automodule:: climtas.io
-   :members:
-
-.. automodule:: climtas.rank
-   :members:
+   api
 
 
 Indices and tables
