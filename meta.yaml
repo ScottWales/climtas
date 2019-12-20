@@ -33,10 +33,11 @@ test:
         - pytest
         - pytest-cov
     files:
+        - setup.cfg
         - test
         - src
     script_env:
         - TEST_OUTPUT
     commands:
-        - py.test --cov=src --junit-xml=${TEST_OUTPUT:-.}/pytest/junit.xml --cov-report=xml:${TEST_OUTPUT:-.}/cov/coverage.xml
+        - COVERAGE_FILE=${TEST_OUTPUT:-.}/coverage py.test --cov=climtas --junit-xml=${TEST_OUTPUT:-.}/pytest/junit.xml
 
