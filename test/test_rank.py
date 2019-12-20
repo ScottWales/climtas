@@ -29,3 +29,15 @@ def test_rank_by_dayofyear():
 
     ranked = rank.rank_by_dayofyear(da)
     numpy.testing.assert_array_equal(ranked.data, [3, 1, 2])
+
+def test_leap_year():
+    data = [3,1,2,5,4]
+    dates = ['19920229', '19930301', '19940301', '19950301', '19960229']
+
+    da = xarray.DataArray(data, coords=[("time", pandas.to_datetime(dates))])
+
+    ranked = rank.rank_by_dayofyear(da)
+    numpy.testing.assert_array_equal(ranked.data, [3, 1, 2, 5, 4])
+
+    ranked = rank.rank_by_monthday(da)
+    numpy.testing.assert_array_equal(ranked.data, [1, 1, 2, 3, 2])

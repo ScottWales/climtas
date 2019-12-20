@@ -13,3 +13,6 @@ climtas
    :target: https://anaconda.org/ScottWales/climtas
    :alt: Conda
 
+
+Functions for working with large (> 10 GB) datasets using Xarray and Dask,
+especially for working in the time domain

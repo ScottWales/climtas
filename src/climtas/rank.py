@@ -18,7 +18,7 @@
 Functions for ranking data, e.g. 'this was the 5th hottest March 2nd'
 """
 
-from .helpers import apply_by_dayofyear
+from .helpers import apply_by_dayofyear, apply_by_monthday
 
 import numpy
 import xarray
