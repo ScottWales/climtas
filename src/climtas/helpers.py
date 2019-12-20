@@ -52,7 +52,10 @@ def optimized_dask_get(graph, keys):
     """
     Compute a dask low-level graph with some optimization
     """
-    client = dask.distributed.get_client()
+    try:
+        client = dask.distributed.get_client()
+    except ValueError:
+        client = dask
 
     graph, _ = dask.optimization.cull(graph, keys)
     graph, _ = dask.optimization.fuse(graph, keys)

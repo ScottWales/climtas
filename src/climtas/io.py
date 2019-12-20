@@ -36,11 +36,11 @@ def to_netcdf_chunkwise(da, path, complevel=4):
             "zlib": True,
             "shuffle": True,
             "complevel": complevel,
-            "chunksizes": da.data.chunksize,
+            "chunksizes": getattr(da.data, 'chunksize', None),
         }
     }
 
-    f = ds.to_netcdf(path, encoding=encoding, compute=False)
+    f = ds.to_netcdf(str(path), encoding=encoding, compute=False)
 
     # Run each of the save operations one at a time, then finalize
     old_graph = f.__dask_graph__()
