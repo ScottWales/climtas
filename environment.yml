@@ -1,0 +1,11 @@
+name: climtas
+channels:
+    - conda-forge
+dependencies:
+    - python >= 3.6
+    - dask
+    - netcdf4
+    - pandas
+    - scipy
+    - tqdm
+    - xarray
