@@ -18,9 +18,9 @@ jobs:
             - run: 
                 name: Upload codecov
                 command: |
-                    coverage combine ${TEST_OUTPUT}/cov/coverage
-                    coverage xml -o ${TEST_OUTPUT}/cov/coverage.xml
-                    codecov -f ${TEST_OUTPUT}/cov/coverage.xml
+                    coverage combine ${TEST_OUTPUT}/coverage
+                    coverage xml -o ${TEST_OUTPUT}/coverage.xml
+                    codecov -f ${TEST_OUTPUT}/coverage.xml
                 when: always
             - store_artifacts:
                 path: /tmp/artifacts

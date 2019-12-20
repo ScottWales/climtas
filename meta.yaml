@@ -39,5 +39,5 @@ test:
     script_env:
         - TEST_OUTPUT
     commands:
-        - COVERAGE_FILE=${TEST_OUTPUT:-.}/cov/coverage py.test --cov=climtas --junit-xml=${TEST_OUTPUT:-.}/pytest/junit.xml
+        - COVERAGE_FILE=${TEST_OUTPUT:-.}/coverage py.test --cov=climtas --junit-xml=${TEST_OUTPUT:-.}/pytest/junit.xml
 
