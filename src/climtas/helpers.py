@@ -61,3 +61,52 @@ def optimized_dask_get(graph, keys):
     graph, _ = dask.optimization.fuse(graph, keys)
 
     return client.get(graph, keys)
+
+def apply_by_dayofyear(da, func, **kwargs):
+    """
+    Group da by 'time.dayofyear', then apply 'func' to each grouping before
+    expanding back to a timeseries
+
+    Rechunks the data to avoid excessive Dask chunks
+    """
+    def group_helper(x):
+        # Xarray tests the return shape of the function by calling it with a
+        # size 0 array, we don't change the shape
+        if x.size == 0:
+            return x
+
+        group = x.groupby("time.dayofyear")
+        ranking = group.map(func, shortcut=True, **kwargs)
+
+        return ranking
+
+    time_chunked = da.chunk({"time": None})
+    ranking = time_chunked.map_blocks(group_helper)
+
+    return ranking
+
+def apply_by_monthday(da, func, **kwargs):
+    """
+    Group da by ('time.month', 'time.dayofyear'), then apply 'func' to each
+    grouping before expanding back to a timeseries
+
+    Rechunks the data to avoid excessive Dask chunks
+    """
+    def group_helper(x):
+        # Xarray tests the return shape of the function by calling it with a
+        # size 0 array, we don't change the shape
+        if x.size == 0:
+            return x
+
+        monthday = x.time.dt.month * 100 + x.time.dt.day
+        x.coords['monthday'] = monthday
+
+        group = x.groupby("monthday")
+        ranking = group.map(func, shortcut=True, **kwargs)
+
+        return ranking
+
+    time_chunked = da.chunk({"time": None})
+    ranking = time_chunked.map_blocks(group_helper)
+
+    return ranking
