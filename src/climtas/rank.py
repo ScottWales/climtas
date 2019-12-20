@@ -24,12 +24,14 @@ import numpy
 import xarray
 import scipy.stats
 
-def rank_along_dim(da, dim='time'):
+
+def rank_along_dim(da, dim="time"):
     """
     Apply 'scipy.stats.rankdata' along a specific dimension of the dataset 'da'
     """
-    axis = da.get_axis_num('time')
+    axis = da.get_axis_num("time")
     return numpy.apply_along_axis(scipy.stats.rankdata, axis, da)
+
 
 def rank_by_dayofyear(da):
     """
@@ -38,6 +40,7 @@ def rank_by_dayofyear(da):
     Leap years will contribute their Dec. 31 values to day 366
     """
     return apply_by_dayofyear(da, rank_along_dim)
+
 
 def rank_by_monthday(da):
     """

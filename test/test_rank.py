@@ -20,13 +20,12 @@ import xarray
 import pandas
 import numpy
 
-def test_rank_by_dayofyear():
-    data = [3,1,2]
-    dates = ['19900101','19910101','19920101']
 
-    da = xarray.DataArray(data, coords=[('time', pandas.to_datetime(dates))])
+def test_rank_by_dayofyear():
+    data = [3, 1, 2]
+    dates = ["19900101", "19910101", "19920101"]
+
+    da = xarray.DataArray(data, coords=[("time", pandas.to_datetime(dates))])
 
     ranked = rank.rank_by_dayofyear(da)
-    numpy.testing.assert_array_equal(ranked.data, [3,1,2])
-
-
+    numpy.testing.assert_array_equal(ranked.data, [3, 1, 2])

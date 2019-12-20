@@ -62,6 +62,7 @@ def optimized_dask_get(graph, keys):
 
     return client.get(graph, keys)
 
+
 def apply_by_dayofyear(da, func, **kwargs):
     """
     Group da by 'time.dayofyear', then apply 'func' to each grouping before
@@ -69,6 +70,7 @@ def apply_by_dayofyear(da, func, **kwargs):
 
     Rechunks the data to avoid excessive Dask chunks
     """
+
     def group_helper(x):
         # Xarray tests the return shape of the function by calling it with a
         # size 0 array, we don't change the shape
@@ -85,6 +87,7 @@ def apply_by_dayofyear(da, func, **kwargs):
 
     return ranking
 
+
 def apply_by_monthday(da, func, **kwargs):
     """
     Group da by ('time.month', 'time.dayofyear'), then apply 'func' to each
@@ -92,6 +95,7 @@ def apply_by_monthday(da, func, **kwargs):
 
     Rechunks the data to avoid excessive Dask chunks
     """
+
     def group_helper(x):
         # Xarray tests the return shape of the function by calling it with a
         # size 0 array, we don't change the shape
@@ -99,7 +103,7 @@ def apply_by_monthday(da, func, **kwargs):
             return x
 
         monthday = x.time.dt.month * 100 + x.time.dt.day
-        x.coords['monthday'] = monthday
+        x.coords["monthday"] = monthday
 
         group = x.groupby("monthday")
         ranking = group.map(func, shortcut=True, **kwargs)
