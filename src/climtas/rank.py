@@ -28,6 +28,13 @@ import scipy.stats
 def rank_along_dim(da, dim="time"):
     """
     Apply 'scipy.stats.rankdata' along a specific dimension of the dataset 'da'
+
+    Args:
+        da: (:class:`xarray.DataArray`): Data to analyse, must include a 'time'
+            dimension
+
+    Returns:
+        A new :class:`xarray.DataArray`
     """
     axis = da.get_axis_num("time")
     return numpy.apply_along_axis(scipy.stats.rankdata, axis, da)
@@ -38,6 +45,13 @@ def rank_by_dayofyear(da):
     Return the ranking for each grid point at that day of the year
 
     Leap years will contribute their Dec. 31 values to day 366
+
+    Args:
+        da: (:class:`xarray.DataArray`): Data to analyse, must include a 'time'
+            dimension
+
+    Returns:
+        A new :class:`xarray.DataArray`
     """
     r = apply_by_dayofyear(da, rank_along_dim)
     r.name = f"{r.name}_rank"
@@ -51,7 +65,14 @@ def rank_by_monthday(da):
     Return the ranking for each grid point at that month and day in the
     calendar
 
-    Leap years will contribute their Fe 29 values to Feb. 29
+    Leap years will contribute their Feb. 29 values to Feb. 29
+
+    Args:
+        da: (:class:`xarray.DataArray`): Data to analyse, must include a 'time'
+            dimension
+
+    Returns:
+        A new :class:`xarray.DataArray`
     """
     r = apply_by_monthday(da, rank_along_dim)
     r.name = f"{r.name}_rank"

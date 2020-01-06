@@ -17,6 +17,11 @@
 import numpy
 import dask
 
+"""Helper functions
+
+These functions are low-level, and mainly intended for internal use
+"""
+
 
 def chunk_count(da):
     """
