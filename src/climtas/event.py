@@ -19,6 +19,7 @@ import dask
 import pandas
 import xarray
 
+
 def find_events(da):
     """Find 'events' in a DataArray mask
 
@@ -45,9 +46,9 @@ def find_events(da):
         as an 'event_duration' column
     """
 
-    duration = numpy.atleast_1d(numpy.zeros_like(da.isel(time=0), dtype='i4'))
+    duration = numpy.atleast_1d(numpy.zeros_like(da.isel(time=0), dtype="i4"))
 
-    columns = ['time', *[d for d in da.dims if d != 'time'], 'event_duration']
+    columns = ["time", *[d for d in da.dims if d != "time"], "event_duration"]
     records = []
 
     def add_events(locations):
@@ -63,15 +64,16 @@ def find_events(da):
 
         if len(columns) == 2:
             # 1d input dataset
-            data=numpy.stack([start_times, end_durations], axis=1)
+            data = numpy.stack([start_times, end_durations], axis=1)
         else:
-            data=numpy.concatenate([start_times[None,:], end_locations,
-                end_durations[None,:]], axis=0).T
+            data = numpy.concatenate(
+                [start_times[None, :], end_locations, end_durations[None, :]], axis=0
+            ).T
 
         df = pandas.DataFrame(data=data, columns=columns)
         records.append(df)
 
-    for t in range(da.sizes['time']):
+    for t in range(da.sizes["time"]):
         current_step = numpy.atleast_1d(da.isel(time=t))
 
         # Add the current step
@@ -85,7 +87,7 @@ def find_events(da):
     add_events(duration > 0)
 
     return pandas.concat(records, ignore_index=True)
-    
+
 
 def map_events(da, events, func, *args, **kwargs):
     """Map a function against multiple events
@@ -141,11 +143,9 @@ def map_events(da, events, func, *args, **kwargs):
 
     def map_func(e):
         coords = {k: e.loc[k] for k in da.dims}
-        coords['time'] = slice(coords['time'], coords['time'] + e['event_duration'])
+        coords["time"] = slice(coords["time"], coords["time"] + e["event_duration"])
 
         values = da.isel(coords)
         return func(values, *args, **kwargs)
 
-    return events.apply(map_func, axis='columns', result_type='expand')
-
-
+    return events.apply(map_func, axis="columns", result_type="expand")

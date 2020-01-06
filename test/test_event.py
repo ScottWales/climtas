@@ -18,48 +18,48 @@ from climtas.event import *
 
 import xarray
 
+
 def test_find_events():
-    da = xarray.DataArray([[0,1,1,1,0]], dims=['x','time'])
+    da = xarray.DataArray([[0, 1, 1, 1, 0]], dims=["x", "time"])
     events = find_events(da > 0)
 
-    events = events.set_index(['time','x'])
+    events = events.set_index(["time", "x"])
     assert events.index[0][0] == 1
     assert events.index[0][1] == 0
-    assert events['event_duration'].iloc[0] == 3
-    assert events['event_duration'].loc[1,0] == 3
+    assert events["event_duration"].iloc[0] == 3
+    assert events["event_duration"].loc[1, 0] == 3
     assert len(events) == 1
 
-
-    da = xarray.DataArray([[0,1,1,1,0], [1,1,0,1,1]], dims=['x','time'])
+    da = xarray.DataArray([[0, 1, 1, 1, 0], [1, 1, 0, 1, 1]], dims=["x", "time"])
     events = find_events(da > 0)
 
-    events = events.set_index(['time','x'])
-    assert events['event_duration'].loc[1,0] == 3
-    assert events['event_duration'].loc[0,1] == 2
-    assert events['event_duration'].loc[3,1] == 2
+    events = events.set_index(["time", "x"])
+    assert events["event_duration"].loc[1, 0] == 3
+    assert events["event_duration"].loc[0, 1] == 2
+    assert events["event_duration"].loc[3, 1] == 2
     assert len(events) == 3
 
-    da = xarray.DataArray([[0,1,1,1,0], [1,1,1,1,0]], dims=['x','time'])
+    da = xarray.DataArray([[0, 1, 1, 1, 0], [1, 1, 1, 1, 0]], dims=["x", "time"])
     events = find_events(da > 0)
 
-    events = events.set_index(['time','x'])
-    assert events['event_duration'].loc[1,0] == 3
-    assert events['event_duration'].loc[0,1] == 4
+    events = events.set_index(["time", "x"])
+    assert events["event_duration"].loc[1, 0] == 3
+    assert events["event_duration"].loc[0, 1] == 4
     assert len(events) == 2
 
 
 def test_find_events_1d():
-    da = xarray.DataArray([0,1,1,1,0], dims=['time'])
+    da = xarray.DataArray([0, 1, 1, 1, 0], dims=["time"])
     events = find_events(da > 0)
 
-    events = events.set_index(['time'])
-    assert events['event_duration'].loc[1] == 3
+    events = events.set_index(["time"])
+    assert events["event_duration"].loc[1] == 3
     assert len(events) == 1
 
 
 def test_map_events():
-    da = xarray.DataArray([0,1,1,1,0], dims=['time'])
+    da = xarray.DataArray([0, 1, 1, 1, 0], dims=["time"])
     events = find_events(da > 0)
-    
+
     sums = map_events(da, events, lambda x: x.sum())
     assert sums.iloc[0] == 3
