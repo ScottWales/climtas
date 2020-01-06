@@ -36,6 +36,15 @@ def to_netcdf_throttled(ds, path, complevel=4, max_tasks=None, show_progress=Tru
     this defaults to the number of workers in your dask.distributed.Client, or
     is 1 if distributed is not being used.
 
+    This is a very basic way to handle backpressure, where data is coming in
+    faster than it can be processed and so fills up memory. Ideally this will
+    be fixed in Dask itself, see e.g.
+    https://github.com/dask/distributed/issues/2602
+
+    In particular, it will only work well if the chunks in the dataset are
+    independent (e.g. if doing operations over a timeseries for a single
+    horizontal chunk so the horizontal chunks are isolated).
+
     Args:
         da (:class:`xarray.Dataset` or :class:`xarray.DataArray`): Data to save
         path (:class:`str` or :class:`pathlib.Path`): Path to save to
