@@ -80,6 +80,7 @@ intersphinx_mapping = {
     "python": ("https://docs.python.org/3", None),
     "xarray": ("http://xarray.pydata.org/en/stable/", None),
     "dask": ("https://docs.dask.org/en/stable/", None),
+    "pandas": ("https://pandas.pydata.org/pandas-docs/stable/", None),
 }
 
 # -- Options for HTML output -------------------------------------------------

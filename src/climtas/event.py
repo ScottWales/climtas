@@ -115,7 +115,7 @@ def map_events(da, events, func, *args, **kwargs):
     0   1.0  0.0
     1   1.0  0.0
 
-    :func:`pandas.DataFrame.join` can be used to link up the results with their
+    :meth:`pandas.DataFrame.join` can be used to link up the results with their
     corresponding coordinates:
 
     >>> da = xarray.DataArray([0,1,1,1,0,1,1], dims=['time'])
@@ -130,14 +130,13 @@ def map_events(da, events, func, *args, **kwargs):
         da (:class:`xarray.DataArray`): Source data values
         events (:class:`pandas.DataFrame`): Event start & durations, e.g. from
             :func:`find_events`
-        func (Callable[[:class:`xarray.DataArray`, *args, **kwargs],
-            Dict[str, Any]]): Function to apply to each event
-        *args, **kwargs: Passed to func
+        func ((:class:`xarray.DataArray`, \*args, \*\*kwargs) -> Dict[str, Any]): Function to apply to each event
+        \*args, \*\*kwargs: Passed to func
 
     Returns:
         :class:`pandas.DataFrame` with each row the result of applying func to
         the corresponding event row. Behaves like
-        :func:`pandas.DataFrame.apply` with result_type='expand'
+        :meth:`pandas.DataFrame.apply` with result_type='expand'
     """
 
     def map_func(e):
