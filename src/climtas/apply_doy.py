@@ -24,6 +24,7 @@ from . import helpers
 
 """
 
+
 def map_doy(func, da, *, dim="time", grouping="dayofyear"):
     """Map a function to a dataset grouped by day of year
 
@@ -53,9 +54,9 @@ def map_doy(func, da, *, dim="time", grouping="dayofyear"):
     time_chunked = da.chunk({dim: None})
 
     # Set up grouping
-    if grouping == 'dayofyear':
+    if grouping == "dayofyear":
         group_coord = da[dim].dt.dayofyear
-    if grouping == 'monthday':
+    if grouping == "monthday":
         group_coord = da[dim].dt.month * 100 + da[dim].dt.day
 
     group_coord.name = grouping
@@ -107,9 +108,9 @@ def reduce_doy(func, da, *, dim="time", grouping="dayofyear"):
     time_chunked = da.chunk({dim: None})
 
     # Set up grouping
-    if grouping == 'dayofyear':
+    if grouping == "dayofyear":
         group_coord = da[dim].dt.dayofyear
-    if grouping == 'monthday':
+    if grouping == "monthday":
         group_coord = da[dim].dt.month * 100 + da[dim].dt.day
 
     group_coord.name = grouping
@@ -120,14 +121,22 @@ def reduce_doy(func, da, *, dim="time", grouping="dayofyear"):
     def group_func(x):
         outputs = []
         for k, v in groups.items():
-            outputs.append(func(x[...,v], axis=-1))
+            outputs.append(func(x[..., v], axis=-1))
 
         return numpy.stack(outputs, axis=-1)
 
     output_dims = [[grouping]]
     output_sizes = {grouping: len(groups)}
 
-    result = xarray.apply_ufunc(group_func, time_chunked, input_core_dims=[[dim]], output_core_dims=output_dims, dask='parallelized', output_dtypes=[da.dtype], output_sizes=output_sizes)
+    result = xarray.apply_ufunc(
+        group_func,
+        time_chunked,
+        input_core_dims=[[dim]],
+        output_core_dims=output_dims,
+        dask="parallelized",
+        output_dtypes=[da.dtype],
+        output_sizes=output_sizes,
+    )
 
     result.coords[grouping] = (grouping, [k for k in groups.keys()])
 
