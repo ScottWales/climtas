@@ -26,7 +26,7 @@ import pandas
 import xarray
 
 
-def find_events(da):
+def find_events(da, min_duration=1):
     """Find 'events' in a DataArray mask
 
     Events are defined as being active when the array value is truthy. You
@@ -45,6 +45,7 @@ def find_events(da):
         da (:class:`xarray.DataArray`): Input mask, valid when an event is
             active. Must have a 'time' dimension, dtype is expected to be bool
             (or something else that is truthy when an event is active)
+        min_duration (:class:`int`): Minimum event duration to return
 
     Returns:
         A :class:`pandas.DataFrame` containing event start points and
@@ -77,7 +78,7 @@ def find_events(da):
             ).T
 
         df = pandas.DataFrame(data=data, columns=columns)
-        records.append(df)
+        records.append(df[df.event_duration >= min_duration])
 
     for t in range(da.sizes["time"]):
         current_step = numpy.atleast_1d(da.isel(time=t))
