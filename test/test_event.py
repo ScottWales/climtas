@@ -48,11 +48,12 @@ def test_find_events():
     assert len(events) == 2
 
     da = xarray.DataArray([[0, 1, 1, 1, 0], [1, 1, 0, 1, 1]], dims=["x", "time"])
-    events = find_events(da > 0, min_duration = 3)
+    events = find_events(da > 0, min_duration=3)
 
     events = events.set_index(["time", "x"])
     assert events["event_duration"].loc[1, 0] == 3
     assert len(events) == 1
+
 
 def test_find_events_1d():
     da = xarray.DataArray([0, 1, 1, 1, 0], dims=["time"])
