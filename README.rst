@@ -55,3 +55,6 @@ especially for working in the time domain
     1     5               2   74
 
 * `Memory-saving write to NetCDF <https://climtas.readthedocs.io/en/stable/api.html#module-climtas.io>`_
+
+See the examples in the `notebooks <notebooks>`_ directory for ideas on how to
+use these functions to analyse large datasets
