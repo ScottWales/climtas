@@ -21,3 +21,7 @@ Functions for working with large (> 10 GB) datasets using Xarray and Dask,
 especially for working in the time domain
 
 `Documentation <https://climtas.readthedocs.io/en/stable/>`_
+
+* `Apply a function grouping by day of year <https://climtas.readthedocs.io/en/stable/api.html#module-climtas.apply_doy>`
+* `Apply a function to events <https://climtas.readthedocs.io/en/stable/api.html#module-climtas.event>`
+* `Memory-saving write to NetCDF <https://climtas.readthedocs.io/en/stable/api.html#module-climtas.io>`
