@@ -22,8 +22,9 @@ especially for working in the time domain
 
 `Documentation <https://climtas.readthedocs.io/en/stable/>`_
 
-* `Apply a function grouping by day of year, without massive numbers of dask chunks <https://climtas.readthedocs.io/en/stable/api.html#module-climtas.apply_doy>`_::
+* `Apply a function grouping by day of year, without massive numbers of dask chunks <https://climtas.readthedocs.io/en/stable/api.html#module-climtas.apply_doy>`_:
 
+.. code-block:: python
     >>> import numpy; import pandas; import xarray
     >>> time = pandas.date_range("20010101", "20030101")
     >>> data = numpy.random.rand(len(time))
@@ -39,8 +40,9 @@ especially for working in the time domain
         dayofyear  (time) int64 1 2 3 4 5 6 7 8 9 ... 359 360 361 362 363 364 365 1
 
 
-* `Find and apply a function to events <https://climtas.readthedocs.io/en/stable/api.html#module-climtas.event>`_::
+* `Find and apply a function to events <https://climtas.readthedocs.io/en/stable/api.html#module-climtas.event>`_:
 
+.. code-block:: python
     >>> from climtas.event import find_events, map_events
     >>> temp = xarray.DataArray([28,31,34,32,30,35,39], dims=['time'])
     >>> events = find_events(temp > 30)
