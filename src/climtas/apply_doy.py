@@ -16,7 +16,7 @@
 
 import numpy
 import dask
-import scipy
+import scipy.stats
 from . import helpers
 
 """Functions for analysis on each day of the year
