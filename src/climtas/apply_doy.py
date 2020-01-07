@@ -14,15 +14,20 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+"""Functions for analysis on each day of the year
+
+Create a climatology with :func:`reduce_doy`, e.g. a percentile climatology
+using :func:`percentile_doy`
+
+Or operate on each day in the year in turn to create a new full timeseries with
+:func:`map_doy`, e.g. to rank the value for that day with :func:`rank_doy`
+"""
+
 import numpy
 import dask
 import scipy.stats
 import xarray
 from . import helpers
-
-"""Functions for analysis on each day of the year
-
-"""
 
 
 def map_doy(func, da, *, dim="time", grouping="dayofyear"):
@@ -39,7 +44,7 @@ def map_doy(func, da, *, dim="time", grouping="dayofyear"):
     * grouping='monthday' will group Feb 29 in a leap year into its own group
 
     Args:
-        func ((:class:`xarray.DataArray`)->:class:`numpy.Array`) Function to
+        func ((:class:`xarray.DataArray`) -> :class:`numpy.ndarray`): Function to
             apply to the grouping, the returned array should be the same shape
             as the input.
         da (:class:`xarray.DataArray`): Data to analyse
@@ -93,8 +98,7 @@ def reduce_doy(func, da, *, dim="time", grouping="dayofyear"):
     * grouping='monthday' will group Feb 29 in a leap year into its own group
 
     Args:
-        func ((:class:`numpy.Array`,
-            axis=:class:`int`)->:class:`numpy.Array`) Function to apply to the
+        func ((:class:`numpy.ndarray`, axis = :class:`int`) -> :class:`numpy.ndarray`): Function to apply to the
             grouping, should reduce the time axis. The axis argument is the
             time dimension given by dim
         da (:class:`xarray.DataArray`): Data to analyse
@@ -151,7 +155,7 @@ def rank_doy(da, *, dim="time", grouping="dayofyear"):
     Args:
         da (:class:`xarray.DataArray`): Data to analyse
         grouping ('dayofyear' or 'monthday'): Grouping method to use (affects
-            leap year behaviour) See :func:`apply_doy`.
+            leap year behaviour) See :func:`reduce_doy`.
 
     Returns:
         :class:`xarray.DataArray` of equivalent shape to da
@@ -172,7 +176,7 @@ def percentile_doy(da, p, *, dim="time", grouping="dayofyear"):
             dimension
         p (:class:`int` between 0 and 100): Percentile to calculate
         grouping ('dayofyear' or 'monthday'): Grouping method to use (affects
-            leap year behaviour) See :func:`apply_doy`.
+            leap year behaviour) See :func:`map_doy`.
 
     Returns:
         :class:`xarray.DataArray` with time axis reduced to dayofyear / monthday

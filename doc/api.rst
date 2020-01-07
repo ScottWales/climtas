@@ -5,7 +5,7 @@ climtas.io
    :members:
 
 climtas.apply_doy
-------------
+-----------------
 .. automodule:: climtas.apply_doy
    :members:
 

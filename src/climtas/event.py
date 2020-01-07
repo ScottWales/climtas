@@ -14,6 +14,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+"""Functions for locating and analysing 'events' within a dataset
+
+Locate where events are with :func:`find_events`, then analyse them with
+:func:`map_events()` to create a :class:`pandas.DataFrame`.
+"""
+
 import numpy
 import dask
 import pandas
