@@ -14,7 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from climtas import rank
+from climtas import apply_doy
 
 import xarray
 import pandas
@@ -27,7 +27,7 @@ def test_rank_by_dayofyear():
 
     da = xarray.DataArray(data, coords=[("time", pandas.to_datetime(dates))])
 
-    ranked = rank.rank_by_dayofyear(da)
+    ranked = apply_doy.rank_doy(da)
     numpy.testing.assert_array_equal(ranked.data, [3, 1, 2])
 
 
@@ -37,8 +37,8 @@ def test_leap_year():
 
     da = xarray.DataArray(data, coords=[("time", pandas.to_datetime(dates))])
 
-    ranked = rank.rank_by_dayofyear(da)
+    ranked = apply_doy.rank_doy(da)
     numpy.testing.assert_array_equal(ranked.data, [3, 1, 2, 5, 4])
 
-    ranked = rank.rank_by_monthday(da)
+    ranked = apply_doy.rank_doy(da, grouping='monthday')
     numpy.testing.assert_array_equal(ranked.data, [1, 1, 2, 3, 2])

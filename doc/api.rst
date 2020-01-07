@@ -4,9 +4,9 @@ climtas.io
 .. automodule:: climtas.io
    :members:
 
-climtas.rank
+climtas.apply_doy
 ------------
-.. automodule:: climtas.rank
+.. automodule:: climtas.apply_doy
    :members:
 
 climtas.event

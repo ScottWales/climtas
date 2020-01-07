@@ -114,7 +114,7 @@ def throttle_futures(graph, key_list, optimizer=None, max_tasks=None):
     return results
 
 
-def apply_by_dayofyear(da, func, **kwargs):
+def apply_by_dayofyear(da, func, dim='time', **kwargs):
     """
     Group da by 'time.dayofyear', then apply 'func' to each grouping before
     expanding back to a timeseries
@@ -128,18 +128,19 @@ def apply_by_dayofyear(da, func, **kwargs):
         if x.size == 0:
             return x
 
-        group = x.groupby("time.dayofyear")
-        ranking = group.map(func, shortcut=True, **kwargs)
+        axis = x.get_axis_num(dim)
+        group = x.groupby(f"{dim}.dayofyear")
+        ranking = group.map(func, shortcut=True, axis=axis, **kwargs)
 
         return ranking
 
-    time_chunked = da.chunk({"time": None})
+    time_chunked = da.chunk({dim: None})
     ranking = time_chunked.map_blocks(chunk_apply_by_dayofyear)
 
     return ranking
 
 
-def apply_by_monthday(da, func, **kwargs):
+def apply_by_monthday(da, func, dim='time', **kwargs):
     """
     Group da by ('time.month', 'time.dayofyear'), then apply 'func' to each
     grouping before expanding back to a timeseries
@@ -153,15 +154,16 @@ def apply_by_monthday(da, func, **kwargs):
         if x.size == 0:
             return x
 
-        monthday = x.time.dt.month * 100 + x.time.dt.day
+        monthday = x[dim].dt.month * 100 + x[dim].dt.day
         x.coords["monthday"] = monthday
 
+        axis = x.get_axis_num(dim)
         group = x.groupby("monthday")
-        ranking = group.map(func, shortcut=True, **kwargs)
+        ranking = group.map(func, shortcut=True, axis=axis, **kwargs)
 
         return ranking
 
-    time_chunked = da.chunk({"time": None})
+    time_chunked = da.chunk({dim: None})
     ranking = time_chunked.map_blocks(chunk_apply_by_monthday)
 
     return ranking
