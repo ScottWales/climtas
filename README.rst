@@ -9,13 +9,13 @@ climtas
    :target: https://codecov.io/gh/ScottWales/climtas
    :alt: Codecov
 
-.. image:: https://img.shields.io/conda/v/ScottWales/climtas
-   :target: https://anaconda.org/ScottWales/climtas
-   :alt: Conda
-
 .. image:: https://img.shields.io/readthedocs/climtas/latest
    :target: https://climtas.readthedocs.io/en/latest/
    :alt: Read the Docs (latest)
+
+.. image:: https://img.shields.io/conda/v/ScottWales/climtas
+   :target: https://anaconda.org/ScottWales/climtas
+   :alt: Conda
 
 Functions for working with large (> 10 GB) datasets using Xarray and Dask,
 especially for working in the time domain
