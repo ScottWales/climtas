@@ -36,9 +36,8 @@ test:
     files:
         - setup.cfg
         - test
-        - src
     script_env:
         - TEST_OUTPUT
     commands:
-        - COVERAGE_FILE=${TEST_OUTPUT:-.}/coverage py.test --cov=climtas --junit-xml=${TEST_OUTPUT:-.}/pytest/junit.xml
+        - COVERAGE_FILE=${TEST_OUTPUT:-.}/coverage.test py.test --pyargs climtas $SRC_DIR/test --junit-xml=${TEST_OUTPUT:-.}/pytest/junit.xml
 
