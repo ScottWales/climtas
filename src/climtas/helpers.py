@@ -16,6 +16,7 @@
 
 import numpy
 import dask
+import xarray
 
 """Helper functions
 
@@ -114,7 +115,7 @@ def throttle_futures(graph, key_list, optimizer=None, max_tasks=None):
     return results
 
 
-def apply_by_dayofyear(da, func, dim="time", **kwargs):
+def apply_by_dayofyear(da, func, dim="time", action='map', **kwargs):
     """
     Group da by 'time.dayofyear', then apply 'func' to each grouping before
     expanding back to a timeseries
@@ -122,25 +123,34 @@ def apply_by_dayofyear(da, func, dim="time", **kwargs):
     Rechunks the data to avoid excessive Dask chunks
     """
 
-    def chunk_apply_by_dayofyear(x):
-        # Xarray tests the return shape of the function by calling it with a
-        # size 0 array, we don't change the shape
-        if x.size == 0:
-            return x
-
-        axis = x.get_axis_num(dim)
-        group = x.groupby(f"{dim}.dayofyear")
-        ranking = group.map(func, shortcut=True, axis=axis, **kwargs)
-
-        return ranking
-
     time_chunked = da.chunk({dim: None})
-    ranking = time_chunked.map_blocks(chunk_apply_by_dayofyear)
 
-    return ranking
+    groups = da[dim].groupby(da[dim].dt.dayofyear).groups
+    def group_func(x):
+        outputs = []
+        for k, v in groups.items():
+            outputs.append(func(x[...,v], axis=-1))
 
+        if action == 'map':
+            return numpy.concatenate(outputs, axis=-1)
+        if action == 'reduce':
+            return numpy.stack(outputs, axis=-1)
 
-def apply_by_monthday(da, func, dim="time", **kwargs):
+    if action == 'map':
+        output_dims = [[dim]]
+        output_sizes = {}
+    if action == 'reduce':
+        output_dims = [['dayofyear']]
+        output_sizes = {'dayofyear': len(groups)}
+
+    result = xarray.apply_ufunc(group_func, time_chunked, input_core_dims=[[dim]], output_core_dims=output_dims, dask='parallelized', output_dtypes=[da.dtype], output_sizes=output_sizes)
+
+    if action == 'reduce':
+        result.coords['dayofyear'] = ('dayofyear', [k for k in groups.keys()])
+
+    return result
+
+def apply_by_monthday(da, func, dim="time", action='map', **kwargs):
     """
     Group da by ('time.month', 'time.dayofyear'), then apply 'func' to each
     grouping before expanding back to a timeseries
@@ -159,7 +169,10 @@ def apply_by_monthday(da, func, dim="time", **kwargs):
 
         axis = x.get_axis_num(dim)
         group = x.groupby("monthday")
-        ranking = group.map(func, shortcut=True, axis=axis, **kwargs)
+        if action == 'map':
+            ranking = group.map(func, axis=axis, **kwargs)
+        else:
+            ranking = group.reduce(func, **kwargs)
 
         return ranking
 
