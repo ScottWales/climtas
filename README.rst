@@ -22,6 +22,6 @@ especially for working in the time domain
 
 `Documentation <https://climtas.readthedocs.io/en/stable/>`_
 
-* `Apply a function grouping by day of year <https://climtas.readthedocs.io/en/stable/api.html#module-climtas.apply_doy>`
-* `Apply a function to events <https://climtas.readthedocs.io/en/stable/api.html#module-climtas.event>`
-* `Memory-saving write to NetCDF <https://climtas.readthedocs.io/en/stable/api.html#module-climtas.io>`
+* `Apply a function grouping by day of year <https://climtas.readthedocs.io/en/stable/api.html#module-climtas.apply_doy>`_
+* `Apply a function to events <https://climtas.readthedocs.io/en/stable/api.html#module-climtas.event>`_
+* `Memory-saving write to NetCDF <https://climtas.readthedocs.io/en/stable/api.html#module-climtas.io>`_
