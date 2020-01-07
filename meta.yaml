@@ -36,6 +36,8 @@ test:
     files:
         - setup.cfg
         - test
+        - README.rst
+        - doc
     script_env:
         - TEST_OUTPUT
     commands:
