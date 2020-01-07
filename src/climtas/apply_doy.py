@@ -24,7 +24,7 @@ from . import helpers
 """
 
 
-def apply_doy(func, da, *, dim='time', grouping='dayofyear'):
+def apply_doy(func, da, *, dim="time", grouping="dayofyear"):
     """Apply a function to a dataset grouped by day of year
 
     Two grouping methods are available, their behaviour differs in leap years.
@@ -47,13 +47,13 @@ def apply_doy(func, da, *, dim='time', grouping='dayofyear'):
         :class:`xarray.DataArray`, time axis reduced according to func
     """
     applyer = {
-        'dayofyear': helpers.apply_by_dayofyear,
-        'monthday': helpers.apply_by_monthday,
+        "dayofyear": helpers.apply_by_dayofyear,
+        "monthday": helpers.apply_by_monthday,
     }
     return applyer[grouping](da, func)
 
 
-def rank_doy(da, *, dim='time', grouping='dayofyear'):
+def rank_doy(da, *, dim="time", grouping="dayofyear"):
     """Calculate the ranking of each cell at the equivalent day of year
 
     Args:
@@ -64,12 +64,14 @@ def rank_doy(da, *, dim='time', grouping='dayofyear'):
     Returns:
         :class:`xarray.DataArray` of equivalent shape to da
     """
+
     def func(x, axis):
         return numpy.apply_along_axis(scipy.stats.rankdata, axis, x)
+
     return apply_doy(func, da, dim=dim, grouping=grouping)
 
 
-def percentile_doy(da, p, *, dim='time', grouping='dayofyear'):
+def percentile_doy(da, p, *, dim="time", grouping="dayofyear"):
     """Calculate the pth percentile of each cell at the equivalent day of year
 
     Args:
@@ -82,6 +84,8 @@ def percentile_doy(da, p, *, dim='time', grouping='dayofyear'):
     Returns:
         :class:`xarray.DataArray` with time axis reduced to dayofyear / monthday
     """
+
     def func(x, axis):
         return numpy.nanpercentile(x, p, axis=axis)
+
     return apply_doy(func, da, dim=dim, grouping=grouping)

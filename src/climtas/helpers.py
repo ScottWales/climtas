@@ -114,7 +114,7 @@ def throttle_futures(graph, key_list, optimizer=None, max_tasks=None):
     return results
 
 
-def apply_by_dayofyear(da, func, dim='time', **kwargs):
+def apply_by_dayofyear(da, func, dim="time", **kwargs):
     """
     Group da by 'time.dayofyear', then apply 'func' to each grouping before
     expanding back to a timeseries
@@ -140,7 +140,7 @@ def apply_by_dayofyear(da, func, dim='time', **kwargs):
     return ranking
 
 
-def apply_by_monthday(da, func, dim='time', **kwargs):
+def apply_by_monthday(da, func, dim="time", **kwargs):
     """
     Group da by ('time.month', 'time.dayofyear'), then apply 'func' to each
     grouping before expanding back to a timeseries

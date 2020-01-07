@@ -40,5 +40,5 @@ def test_leap_year():
     ranked = apply_doy.rank_doy(da)
     numpy.testing.assert_array_equal(ranked.data, [3, 1, 2, 5, 4])
 
-    ranked = apply_doy.rank_doy(da, grouping='monthday')
+    ranked = apply_doy.rank_doy(da, grouping="monthday")
     numpy.testing.assert_array_equal(ranked.data, [1, 1, 2, 3, 2])
