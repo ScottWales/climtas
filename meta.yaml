@@ -36,6 +36,7 @@ test:
     files:
         - setup.cfg
         - test
+        - src
     script_env:
         - TEST_OUTPUT
     commands:
