@@ -20,8 +20,6 @@ climtas
 Functions for working with large (> 10 GB) datasets using Xarray and Dask,
 especially for working in the time domain
 
-`Latest Documentation <https://climtas.readthedocs.io/en/latest/>`_
-
 * `Apply a function grouping by day of year, without massive numbers of dask chunks <https://climtas.readthedocs.io/en/latest/api.html#module-climtas.apply_doy>`_:
 
 .. code-block:: python
