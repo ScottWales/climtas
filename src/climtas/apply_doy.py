@@ -32,6 +32,7 @@ def map_doy(func, da, *, dim="time", grouping="dayofyear"):
     contiguous dimension
 
     Two grouping methods are available, their behaviour differs in leap years.
+
     * grouping='dayofyear' will group Feb 29 in a leap year with Mar 1 in a
       non-leap year, leap years will have an additional day 366 consisting of
       Dec 31 values
@@ -85,6 +86,7 @@ def reduce_doy(func, da, *, dim="time", grouping="dayofyear"):
     contiguous dimension
 
     Two grouping methods are available, their behaviour differs in leap years.
+
     * grouping='dayofyear' will group Feb 29 in a leap year with Mar 1 in a
       non-leap year, leap years will have an additional day 366 consisting of
       Dec 31 values
