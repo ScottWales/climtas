@@ -183,7 +183,7 @@ def percentile_doy(da, p, *, dim="time", grouping="dayofyear"):
     """
 
     def func(x, axis):
-        r = numpy.nanpercentile(x, p, axis=axis)
+        r = numpy.percentile(x, p, axis=axis)
         return r
 
     return reduce_doy(func, da, dim=dim, grouping=grouping)
