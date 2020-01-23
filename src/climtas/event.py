@@ -193,7 +193,9 @@ def atleastn(da, n, dim="time"):
             mask = numpy.where(count >= n, False, mask)
 
         out_slice = numpy.take(array, array.shape[axis] // 2, axis=axis)
-        return numpy.ma.masked_where(mask, out_slice)
+        r = numpy.where(mask, numpy.nan, out_slice)
+
+        return r
 
     def atleastn_dask_helper(array, axis, **kwargs):
         r = dask.array.map_blocks(
@@ -206,4 +208,5 @@ def atleastn(da, n, dim="time"):
     else:
         reducer = atleastn_helper
 
-    return da.rolling({dim: n * 2 - 1}, center=True, min_periods=n).reduce(reducer, n=n)
+    r = da.rolling({dim: n * 2 - 1}, center=True, min_periods=1).reduce(reducer, n=n)
+    return r
