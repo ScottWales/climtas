@@ -73,18 +73,16 @@ def test_map_events():
 
 
 def test_atleastn():
-    sample = [[0, 1, 1, 1, 0, 1, 1, 1, 1],
-              [1, 0, 1, 1, 0, 0, 0, 0, 1]]
+    sample = [[0, 1, 1, 1, 0, 1, 1, 1, 1], [1, 0, 1, 1, 0, 0, 0, 0, 1]]
 
-    expect = [[0, 1, 1, 1, 0, 1, 1, 1, 1],
-              [0, 0, 0, 0, 0, 0, 0, 0, 0]]
+    expect = [[0, 1, 1, 1, 0, 1, 1, 1, 1], [0, 0, 0, 0, 0, 0, 0, 0, 0]]
     expect = numpy.array(expect)
     expect = numpy.where(expect > 0, expect, numpy.nan)
 
-    da =  xarray.DataArray( sample, dims=["x","time"])
-    #filtered = atleastn(da.where(da > 0), 3)
-    #numpy.testing.assert_array_equal(filtered, expect)
+    da = xarray.DataArray(sample, dims=["x", "time"])
+    # filtered = atleastn(da.where(da > 0), 3)
+    # numpy.testing.assert_array_equal(filtered, expect)
 
-    da = da.chunk({'x': 2})
+    da = da.chunk({"x": 2})
     filtered = atleastn(da.where(da > 0), 3)
     numpy.testing.assert_array_equal(filtered, expect)
