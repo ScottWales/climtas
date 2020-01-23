@@ -156,3 +156,57 @@ def map_events(da, events, func, *args, **kwargs):
         return func(values, *args, **kwargs)
 
     return events.apply(map_func, axis="columns", result_type="expand")
+
+
+def atleastn(da, n, dim="time"):
+    """
+    Filter to return values with at least n contiguous points around them
+
+    >>> da = xarray.DataArray([0,1.4,0.8,1,-0.1,2.9,0.6], dims=['time'])
+    >>> atleastn(da.where(da > 0), 3)
+    <xarray.DataArray (time: 7)>
+    array([nan, 1.4, 0.8, 1. , nan, nan, nan])
+    Dimensions without coordinates: time
+
+    Args:
+        da (:class:`xarray.DataArray`): Pre-filtered event values
+        n (:class:`int`): Minimum event length
+        dim (:class:`str`): Dimension to work on
+
+    Returns:
+        :class:`xarray.DataArray` with events from da that are longer than n
+        along dimension dim
+    """
+
+    def atleastn_helper(array, n, axis):
+        count = numpy.zeros_like(numpy.take(array, 0, axis=axis), dtype="i4")
+        mask = numpy.empty_like(numpy.take(array, 0, axis=axis), dtype="bool")
+        mask = True
+
+        for i in range(array.shape[axis]):
+            array_slice = numpy.take(array, i, axis=axis)
+
+            # Increase the count when there is a valid value, reset when there is not
+            count = numpy.where(numpy.isfinite(array_slice), count + 1, 0)
+
+            # Add new points when the contiguous count exceeds the threshold
+            mask = numpy.where(count >= n, False, mask)
+
+        out_slice = numpy.take(array, array.shape[axis] // 2, axis=axis)
+        r = numpy.where(mask, numpy.nan, out_slice)
+
+        return r
+
+    def atleastn_dask_helper(array, axis, **kwargs):
+        r = dask.array.map_blocks(
+            atleastn_helper, array, drop_axis=axis, axis=axis, n=n, dtype=array.dtype
+        )
+        return r
+
+    if isinstance(da.data, dask.array.Array):
+        reducer = atleastn_dask_helper
+    else:
+        reducer = atleastn_helper
+
+    r = da.rolling({dim: n * 2 - 1}, center=True, min_periods=1).reduce(reducer, n=n)
+    return r
