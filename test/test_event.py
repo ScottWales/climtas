@@ -80,8 +80,8 @@ def test_atleastn():
     expect = numpy.where(expect > 0, expect, numpy.nan)
 
     da = xarray.DataArray(sample, dims=["x", "time"])
-    # filtered = atleastn(da.where(da > 0), 3)
-    # numpy.testing.assert_array_equal(filtered, expect)
+    filtered = atleastn(da.where(da > 0), 3)
+    numpy.testing.assert_array_equal(filtered, expect)
 
     da = da.chunk({"x": 2})
     filtered = atleastn(da.where(da > 0), 3)
