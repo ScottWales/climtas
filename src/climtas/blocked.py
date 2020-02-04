@@ -59,6 +59,7 @@ class BlockedResampler():
         # Check even division
         for i, c in enumerate(data.chunks[self.axis]):
             if c % self.count != 0:
+                print(data.chunks[self.axis])
                 raise Exception(f"count ({self.count}) must evenly divide chunk.shape[{self.axis}] for all chunks, fails at chunk {i} with size {c}")
 
         # Map the op onto the blocks
@@ -80,6 +81,9 @@ class BlockedResampler():
 
     def max(self):
         return self.map(numpy.max)
+
+    def sum(self):
+        return self.map(numpy.sum)
 
 
 def blocked_resample(da, indexer = None, **kwargs):
