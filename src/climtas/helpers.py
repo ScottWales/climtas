@@ -92,7 +92,7 @@ def throttle_futures(graph, key_list, optimizer=None, max_tasks=None):
     keys = iter(key_list)
 
     if max_tasks is None:
-        max_tasks = len(client.cluster.workers) + 1
+        max_tasks = len(client.cluster.workers)
 
     # Build up initial max_tasks future list
     for i in range(min(max_tasks, len(key_list))):
