@@ -61,7 +61,6 @@ def find_events(da, min_duration=1):
 
     def add_events(locations):
         end_locations = numpy.nonzero(locations)
-        print(end_locations)
         end_durations = duration[end_locations]
         start_times = t - end_durations
 
@@ -83,7 +82,7 @@ def find_events(da, min_duration=1):
         records.append(df[df.event_duration >= min_duration])
 
     for t in tqdm(range(da.sizes["time"])):
-        current_step = numpy.atleast_1d(da.data[t, ...])
+        current_step = numpy.atleast_1d(da.data.take(t, axis=da.get_axis_num("time")))
 
         # Add the current step
         duration = duration + numpy.where(current_step, 1, 0)
