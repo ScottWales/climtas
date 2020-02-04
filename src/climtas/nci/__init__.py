@@ -14,6 +14,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+"""NCI Specific functions and utilities
+"""
+
 import dask.distributed
 import os
 
@@ -21,6 +24,11 @@ _dask_client = None
 
 
 def GadiClient(threads=1):
+    """Start a Dask client on Gadi
+
+    If run on a login node it will check the PBS resources to know how many
+    CPUs and the amount of memory that is available.
+    """
     global _dask_client
     if _dask_client is None:
         if os.environ["HOSTNAME"].startswith("gadi-login"):

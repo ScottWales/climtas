@@ -15,6 +15,7 @@ time domain with custom functions for `Xarray <https://xarray.pydata.org>`_ and
    :caption: Contents:
 
    api
+   nci
 
 
 Indices and tables

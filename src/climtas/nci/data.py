@@ -14,6 +14,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+"""Access datasets
+"""
+
 import xarray
 import glob
 
@@ -26,6 +29,8 @@ def validate_vocab(name, value, valid_values):
 
 
 def era5(variable, category):
+    """Open a ERA5 variable
+    """
     validate_vocab(
         "category", category, ["pressure", "surface", "land", "wave", "static"]
     )

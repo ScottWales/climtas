@@ -14,7 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-""" Xarray operations that act per block
+""" Xarray operations that act per Dask block
 """
 
 import xarray
@@ -24,7 +24,24 @@ import dask.array
 
 
 class BlockedResampler:
+    """A blocked resampling operation
+
+    Works like :class:`xarray.core.resample.DataarrayResample`, with the
+    constraint that the resampling is a regular interval, and that the
+    resampling interval evenly divides the length along *dim* of every Dask
+    chunk in *da*.
+
+    The benefit of this restriction is that no extra Dask chunks are
+    created by the resampling, which is important for large datasets.
+    """
+
     def __init__(self, da, dim, count):
+        """
+        Args:
+            da (:class:`xarray.DataArray`): Input DataArray
+            dim (:class:`str`): Dimension to group over
+            count (:class:`int`): Grouping length
+        """
         self.da = da
         self.dim = dim
         self.axis = self.da.get_axis_num(dim)
@@ -33,9 +50,17 @@ class BlockedResampler:
     def map(self, op):
         """Apply an arbitrary operation to each resampled group
 
+        The function *op* is applied to each group. The grouping axis is given
+        by *axis*, this axis should be reduced out by *op* (e.g. like
+        :func:`numpy.mean` does)
+
         Args:
             op ((:class:`numpy.array`, axis) -> (:class:`numpy.array`)):
                 Function to reduce out the resampled dimension
+
+        Returns:
+            A resampled :class:`xarray.DataArray`, where every *self.count*
+            values along *self.dim* have been reduced by *op*
         """
 
         def resample_op(block, op, axis, count):
@@ -83,15 +108,23 @@ class BlockedResampler:
         return result
 
     def mean(self):
+        """ Reduce the samples using numpy.mean
+        """
         return self.map(numpy.mean)
 
     def min(self):
+        """ Reduce the samples using numpy.min
+        """
         return self.map(numpy.min)
 
     def max(self):
+        """ Reduce the samples using numpy.max
+        """
         return self.map(numpy.max)
 
     def sum(self):
+        """ Reduce the samples using numpy.count
+        """
         return self.map(numpy.sum)
 
 
