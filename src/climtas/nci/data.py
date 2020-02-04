@@ -20,24 +20,35 @@ import glob
 
 def validate_vocab(name, value, valid_values):
     if value not in valid_values:
-        raise Exception(f'{value} is not a valid {name} value. Choose one of {valid_values}')
+        raise Exception(
+            f"{value} is not a valid {name} value. Choose one of {valid_values}"
+        )
 
 
 def era5(variable, category):
-    validate_vocab('category', category, ['pressure', 'surface', 'land', 'wave', 'static'])
+    validate_vocab(
+        "category", category, ["pressure", "surface", "land", "wave", "static"]
+    )
 
-    if category == 'static':
-        return xarray.open_dataset('/g/data/ub4/era5/netcdf/static_era5.nc')[variable.lower()]
+    if category == "static":
+        return xarray.open_dataset("/g/data/ub4/era5/netcdf/static_era5.nc")[
+            variable.lower()
+        ]
 
-    paths = sorted(glob.glob(f'/g/data/ub4/era5/netcdf/{category}/{variable}/*/{variable}_era5_global_*.nc'))[:-4]
+    paths = sorted(
+        glob.glob(
+            f"/g/data/ub4/era5/netcdf/{category}/{variable}/*/{variable}_era5_global_*.nc"
+        )
+    )[:-4]
 
-    ds = xarray.open_mfdataset(paths,
-            combine='nested',
-            concat_dim='time',
-            compat='override',
-            coords='minimal',
-            chunks={'latitude': 91, 'longitude': 180},
-            parallel=True)
+    ds = xarray.open_mfdataset(
+        paths,
+        combine="nested",
+        concat_dim="time",
+        compat="override",
+        coords="minimal",
+        chunks={"latitude": 91, "longitude": 180},
+        parallel=True,
+    )
 
     return ds[variable.lower()]
-

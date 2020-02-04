@@ -23,7 +23,7 @@ import pandas
 import dask.array
 
 
-class BlockedResampler():
+class BlockedResampler:
     def __init__(self, da, dim, count):
         self.da = da
         self.dim = dim
@@ -44,9 +44,9 @@ class BlockedResampler():
             # using op
             shape = list(block.shape)
             shape[axis] //= count
-            shape.insert(axis+1, count)
+            shape.insert(axis + 1, count)
             reshaped = block.reshape(shape)
-            return op(reshaped, axis=(axis+1))
+            return op(reshaped, axis=(axis + 1))
 
         data = self.da.data
         if not isinstance(data, dask.array.Array):
@@ -60,15 +60,24 @@ class BlockedResampler():
         for i, c in enumerate(data.chunks[self.axis]):
             if c % self.count != 0:
                 print(data.chunks[self.axis])
-                raise Exception(f"count ({self.count}) must evenly divide chunk.shape[{self.axis}] for all chunks, fails at chunk {i} with size {c}")
+                raise Exception(
+                    f"count ({self.count}) must evenly divide chunk.shape[{self.axis}] for all chunks, fails at chunk {i} with size {c}"
+                )
 
         # Map the op onto the blocks
-        new_data = data.map_blocks(resample_op, op=op, axis=self.axis, count=self.count, chunks=new_chunks, dtype=data.dtype)
+        new_data = data.map_blocks(
+            resample_op,
+            op=op,
+            axis=self.axis,
+            count=self.count,
+            chunks=new_chunks,
+            dtype=data.dtype,
+        )
 
         result = xarray.DataArray(new_data, dims=self.da.dims, attrs=self.da.attrs)
         for k, v in self.da.coords.items():
             if k == self.dim:
-                v = v[::self.count]
+                v = v[:: self.count]
             result.coords[k] = v
 
         return result
@@ -86,7 +95,7 @@ class BlockedResampler():
         return self.map(numpy.sum)
 
 
-def blocked_resample(da, indexer = None, **kwargs):
+def blocked_resample(da, indexer=None, **kwargs):
     """Create a blocked resampler
 
     The input data is grouped into blocks of length count along dim for further

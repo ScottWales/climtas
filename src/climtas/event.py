@@ -83,7 +83,7 @@ def find_events(da, min_duration=1):
         records.append(df[df.event_duration >= min_duration])
 
     for t in tqdm(range(da.sizes["time"])):
-        current_step = numpy.atleast_1d(da.data[t,...])
+        current_step = numpy.atleast_1d(da.data[t, ...])
 
         # Add the current step
         duration = duration + numpy.where(current_step, 1, 0)
