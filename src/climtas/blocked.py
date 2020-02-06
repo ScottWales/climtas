@@ -269,7 +269,7 @@ class BlockedGroupby():
         """
         block_da = self.block_dataarray()
         block_da = block_da.chunk({'year': None})
-        data = block_da.data.map_blocks(numpy.nanpercentile, q=q, axis=0, dtype=block_da.dtype, drop_axis=0)
+        data = block_da.data.map_blocks(numpy.percentile, q=q, axis=0, dtype=block_da.dtype, drop_axis=0)
 
         result = xarray.DataArray(data, dims=block_da.dims[1:])
         for d in block_da.coords:
