@@ -267,7 +267,17 @@ class BlockedGroupby():
     def percentile(self, q):
         """ Reduce the samples using numpy.percentile
         """
-        return self.block_dataarray().reduce(numpy.nanpercentile, q=q)
+        block_da = self.block_dataarray()
+        block_da = block_da.chunk({'year': None})
+        data = block_da.data.map_blocks(numpy.nanpercentile, q=q, axis=0, dtype=block_da.dtype, drop_axis=0)
+
+        result = xarray.DataArray(data, dims=block_da.dims[1:])
+        for d in block_da.coords:
+            try:
+                result.coords[d] = block_da.coords[d]
+            except ValueError:
+                pass
+        return result
 
     def _binary_op(self, other, op):
         if not isinstance(other, xarray.DataArray):

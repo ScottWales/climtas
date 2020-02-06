@@ -20,6 +20,8 @@
 import dask.distributed
 import os
 
+from . import data
+
 _dask_client = None
 
 

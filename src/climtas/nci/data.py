@@ -56,4 +56,4 @@ def era5(variable, category):
         parallel=True,
     )
 
-    return ds[variable.lower()]
+    return ds
