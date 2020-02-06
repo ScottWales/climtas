@@ -1,3 +1,7 @@
+Climtas General API
+===================
+
+For ideas on how to use these functions check out the `sample notebooks <https://github.com/ScottWales/climtas/tree/master/notebooks>`_
 
 climtas.io
 ----------
@@ -12,4 +16,9 @@ climtas.apply_doy
 climtas.event
 -------------
 .. automodule:: climtas.event
+   :members:
+
+climtas.blocked
+---------------
+.. automodule:: climtas.blocked
    :members:

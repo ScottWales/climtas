@@ -24,6 +24,7 @@ import numpy
 import dask
 import pandas
 import xarray
+from tqdm.auto import tqdm
 
 
 def find_events(da, min_duration=1):
@@ -80,11 +81,11 @@ def find_events(da, min_duration=1):
         df = pandas.DataFrame(data=data, columns=columns)
         records.append(df[df.event_duration >= min_duration])
 
-    for t in range(da.sizes["time"]):
-        current_step = numpy.atleast_1d(da.isel(time=t))
+    for t in tqdm(range(da.sizes["time"])):
+        current_step = numpy.atleast_1d(da.data.take(t, axis=da.get_axis_num("time")))
 
         # Add the current step
-        duration += numpy.where(current_step, 1, 0)
+        duration = duration + numpy.where(current_step, 1, 0)
 
         # End points are where we have an active duration but no event in the current step
         add_events(numpy.logical_and(duration > 0, numpy.logical_not(current_step)))

@@ -30,13 +30,13 @@ especially for working in the time domain
     >>> da = xarray.DataArray(data, coords=[("time", time)])
     >>> da = da.chunk({"time": 365})
 
-    >>> from climtas.apply_doy import rank_doy
-    >>> rank_doy(da)
-    <xarray.DataArray (time: 731)>
-    dask.array<...-<this, shape=(731,), dtype=float64, chunksize=(731,), chunktype=numpy.ndarray>
+    >>> from climtas import blocked_groupby
+    >>> blocked_groupby(da, time='dayofyear').mean()
+    <xarray.DataArray 'stack-...' (dayofyear: 366)>
+    dask.array<mean_agg-aggregate, shape=(366,), dtype=float64, chunksize=(365,), chunktype=numpy.ndarray>
     Coordinates:
-      * time       (time) datetime64[ns] 2001-01-01 2001-01-02 ... 2003-01-01
-        dayofyear  (time) int64 1 2 3 4 5 6 7 8 9 ... 359 360 361 362 363 364 365 1
+      * dayofyear  (dayofyear) int64 1 2 3 4 5 6 7 8 ... 360 361 362 363 364 365 366
+
 
 
 * `Find and apply a function to events <https://climtas.readthedocs.io/en/latest/api.html#module-climtas.event>`_:
