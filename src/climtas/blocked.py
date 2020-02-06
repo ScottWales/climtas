@@ -160,25 +160,33 @@ def blocked_resample(da, indexer=None, **kwargs):
     return BlockedResampler(da, dim=dim, count=count)
 
 
-class BlockedGroupby():
-    def __init__(self, da, grouping, dim='time'):
+class BlockedGroupby:
+    def __init__(self, da, grouping, dim="time"):
         self.da = da
         self.grouping = grouping
         self.dim = dim
 
         # Check the time axis
-        expected_time = pandas.date_range(da[dim].data[0], periods=da.sizes[dim], freq='D')
+        expected_time = pandas.date_range(
+            da[dim].data[0], periods=da.sizes[dim], freq="D"
+        )
 
         if not numpy.array_equal(da[dim], expected_time):
             raise Exception("Expected {dim} to be regularly spaced daily data")
 
     def _group_year(self, d, axis, empty):
         if d.shape[axis] == 365:
-            if self.grouping == 'dayofyear':
+            if self.grouping == "dayofyear":
                 return dask.array.concatenate([d.data, empty], axis=axis)
-            elif self.grouping == 'monthday':
-                return dask.array.concatenate([
-                    d.isel({self.dim: slice(None, 31+28)}).data, empty, d.isel({self.dim: slice(31+28, None)}).data], axis=axis)
+            elif self.grouping == "monthday":
+                return dask.array.concatenate(
+                    [
+                        d.isel({self.dim: slice(None, 31 + 28)}).data,
+                        empty,
+                        d.isel({self.dim: slice(31 + 28, None)}).data,
+                    ],
+                    axis=axis,
+                )
             else:
                 raise Exception()
         elif d.shape[axis] == 366:
@@ -186,36 +194,40 @@ class BlockedGroupby():
 
     def _ungroup_year(self, d, axis, source):
         if d.shape[axis] == 365:
-            if self.grouping == 'dayofyear':
-                return dask.array.take(source, slice(0,365), axis=axis)
-            elif self.grouping == 'monthday':
-                return dask.array.concatenate([
-                    source.take(axis, slice(0, 31+28)), source.take(axis, slice(31+28+1, None))],
-                    axis=axis)
+            if self.grouping == "dayofyear":
+                return dask.array.take(source, slice(0, 365), axis=axis)
+            elif self.grouping == "monthday":
+                return dask.array.concatenate(
+                    [
+                        source.take(axis, slice(0, 31 + 28)),
+                        source.take(axis, slice(31 + 28 + 1, None)),
+                    ],
+                    axis=axis,
+                )
             else:
                 raise Exception()
         elif d.shape[axis] == 366:
             return source
 
     def _block_data(self, da):
-        years = da.groupby(f'{self.dim}.year')
+        years = da.groupby(f"{self.dim}.year")
         axis = da.get_axis_num(self.dim)
         blocks = []
 
-        expand = dask.array.full_like(da.isel({self.dim: slice(0,1)}).data, numpy.nan)
+        expand = dask.array.full_like(da.isel({self.dim: slice(0, 1)}).data, numpy.nan)
 
         for y, d in years:
             blocks.append(self._group_year(d, axis, expand))
 
         data = dask.array.stack(blocks, axis=0)
 
-        return data, axis+1
+        return data, axis + 1
 
     def block_dataarray(self):
         data, block_axis = self._block_data(self.da)
 
         dims = list(self.da.dims)
-        dims.insert(0, 'year')
+        dims.insert(0, "year")
         dims[block_axis] = self.grouping
 
         da = xarray.DataArray(data, dims=dims)
@@ -228,48 +240,50 @@ class BlockedGroupby():
                     # Repeat dimension name or something
                     pass
 
-        if self.grouping == 'dayofyear':
-            da.coords['dayofyear'] = ('dayofyear', range(1,367))
+        if self.grouping == "dayofyear":
+            da.coords["dayofyear"] = ("dayofyear", range(1, 367))
 
-        if self.grouping == 'monthday':
+        if self.grouping == "monthday":
             # Grab dates from a sample leap year
-            basis = pandas.date_range('20040101','20050101', freq='D', closed='left')
-            da.coords['month'] = ('monthday', basis.month)
-            da.coords['day'] = ('monthday', basis.day)
+            basis = pandas.date_range("20040101", "20050101", freq="D", closed="left")
+            da.coords["month"] = ("monthday", basis.month)
+            da.coords["day"] = ("monthday", basis.day)
 
         return da
 
     def reduce(self, op, **kwargs):
         block_da = self.block_dataarray()
 
-        return block_da.reduce(op, dim='year', **kwargs)
+        return block_da.reduce(op, dim="year", **kwargs)
 
     def mean(self):
         """ Reduce the samples using numpy.mean
         """
-        return self.block_dataarray().mean(dim='year')
+        return self.block_dataarray().mean(dim="year")
 
     def min(self):
         """ Reduce the samples using numpy.min
         """
-        return self.block_dataarray().min(dim='year')
+        return self.block_dataarray().min(dim="year")
 
     def max(self):
         """ Reduce the samples using numpy.max
         """
-        return self.block_dataarray().max(dim='year')
+        return self.block_dataarray().max(dim="year")
 
     def sum(self):
         """ Reduce the samples using numpy.sum
         """
-        return self.block_dataarray().sum(dim='year')
+        return self.block_dataarray().sum(dim="year")
 
     def percentile(self, q):
         """ Reduce the samples using numpy.percentile
         """
         block_da = self.block_dataarray()
-        block_da = block_da.chunk({'year': None})
-        data = block_da.data.map_blocks(numpy.percentile, q=q, axis=0, dtype=block_da.dtype, drop_axis=0)
+        block_da = block_da.chunk({"year": None})
+        data = block_da.data.map_blocks(
+            numpy.percentile, q=q, axis=0, dtype=block_da.dtype, drop_axis=0
+        )
 
         result = xarray.DataArray(data, dims=block_da.dims[1:])
         for d in block_da.coords:
@@ -287,11 +301,13 @@ class BlockedGroupby():
             raise Exception()
 
         axis = self.da.get_axis_num(self.dim)
-        expand = dask.array.full_like(self.da.isel({self.dim: slice(0,1)}).data, numpy.nan)
+        expand = dask.array.full_like(
+            self.da.isel({self.dim: slice(0, 1)}).data, numpy.nan
+        )
         blocks = []
 
         # Apply the operation to each year
-        for y, d in self.da.groupby(f'{self.dim}.year'):
+        for y, d in self.da.groupby(f"{self.dim}.year"):
             grouped = self._group_year(d, axis, expand)
             result = getattr(grouped, op)(other)
             blocks.append(self._ungroup_year(d, axis, result))
@@ -305,13 +321,16 @@ class BlockedGroupby():
         return result
 
     def __add__(self, other):
-        return self._binary_op(other, '__add__')
+        return self._binary_op(other, "__add__")
+
     def __sub__(self, other):
-        return self._binary_op(other, '__sub__')
+        return self._binary_op(other, "__sub__")
+
     def __mul__(self, other):
-        return self._binary_op(other, '__mul__')
+        return self._binary_op(other, "__mul__")
+
     def __div__(self, other):
-        return self._binary_op(other, '__div__')
+        return self._binary_op(other, "__div__")
 
 
 def blocked_groupby(da, indexer=None, **kwargs):
@@ -345,8 +364,7 @@ def blocked_groupby(da, indexer=None, **kwargs):
     assert len(indexer) == 1
     dim, grouping = list(indexer.items())[0]
 
-    if grouping in ['dayofyear', 'monthday']:
+    if grouping in ["dayofyear", "monthday"]:
         return BlockedGroupby(da, dim=dim, grouping=grouping)
     else:
-        raise NotImplementedError(f'Grouping {grouping} is not implemented')
-
+        raise NotImplementedError(f"Grouping {grouping} is not implemented")
