@@ -166,6 +166,37 @@ class BlockedGroupby():
         self.grouping = grouping
         self.dim = dim
 
+        # Check the time axis
+        expected_time = pandas.date_range(da[dim].data[0], periods=da.sizes[dim], freq='D')
+
+        if not numpy.array_equal(da[dim], expected_time):
+            raise Exception("Expected {dim} to be regularly spaced daily data")
+
+    def _group_year(self, d, axis, empty):
+        if d.shape[axis] == 365:
+            if self.grouping == 'dayofyear':
+                return dask.array.concatenate([d.data, empty], axis=axis)
+            elif self.grouping == 'monthday':
+                return dask.array.concatenate([
+                    d.isel({self.dim: slice(None, 31+28)}).data, empty, d.isel({self.dim: slice(31+28, None)}).data], axis=axis)
+            else:
+                raise Exception()
+        elif d.shape[axis] == 366:
+            return d.data
+
+    def _ungroup_year(self, d, axis, source):
+        if d.shape[axis] == 365:
+            if self.grouping == 'dayofyear':
+                return dask.array.take(source, slice(0,365), axis=axis)
+            elif self.grouping == 'monthday':
+                return dask.array.concatenate([
+                    source.take(axis, slice(0, 31+28)), source.take(axis, slice(31+28+1, None))],
+                    axis=axis)
+            else:
+                raise Exception()
+        elif d.shape[axis] == 366:
+            return source
+
     def _block_data(self, da):
         years = da.groupby(f'{self.dim}.year')
         axis = da.get_axis_num(self.dim)
@@ -174,16 +205,7 @@ class BlockedGroupby():
         expand = dask.array.full_like(da.isel({self.dim: slice(0,1)}).data, numpy.nan)
 
         for y, d in years:
-            if d.shape[axis] == 365:
-                if self.grouping == 'dayofyear':
-                    blocks.append(dask.array.concatenate([d.data, expand], axis=axis))
-                elif self.grouping == 'monthday':
-                    blocks.append(dask.array.concatenate([
-                        d.isel({self.dim: slice(None, 31+28)}).data, expand, d.isel({self.dim: slice(31+28, None)}).data], axis=axis))
-                else:
-                    raise Exception()
-            elif d.shape[axis] == 366:
-                blocks.append(d.data)
+            blocks.append(self._group_year(d, axis, expand))
 
         data = dask.array.stack(blocks, axis=0)
 
@@ -246,6 +268,40 @@ class BlockedGroupby():
         """ Reduce the samples using numpy.percentile
         """
         return self.block_dataarray().reduce(numpy.nanpercentile, q=q)
+
+    def _binary_op(self, other, op):
+        if not isinstance(other, xarray.DataArray):
+            raise Exception()
+
+        if self.grouping not in other.dims:
+            raise Exception()
+
+        axis = self.da.get_axis_num(self.dim)
+        expand = dask.array.full_like(self.da.isel({self.dim: slice(0,1)}).data, numpy.nan)
+        blocks = []
+
+        # Apply the operation to each year
+        for y, d in self.da.groupby(f'{self.dim}.year'):
+            grouped = self._group_year(d, axis, expand)
+            result = getattr(grouped, op)(other)
+            blocks.append(self._ungroup_year(d, axis, result))
+
+        # Combine back into a timeseries
+        data = dask.array.concatenate(blocks, axis=axis)
+
+        # Return a dataarray with the original coordinates
+        result = xarray.DataArray(data, dims=self.da.dims, coords=self.da.coords)
+
+        return result
+
+    def __add__(self, other):
+        return self._binary_op(other, '__add__')
+    def __sub__(self, other):
+        return self._binary_op(other, '__sub__')
+    def __mul__(self, other):
+        return self._binary_op(other, '__mul__')
+    def __div__(self, other):
+        return self._binary_op(other, '__div__')
 
 
 def blocked_groupby(da, indexer=None, **kwargs):

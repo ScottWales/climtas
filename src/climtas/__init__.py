@@ -4,5 +4,6 @@ __version__ = get_versions()["version"]
 del get_versions
 
 from . import event
-from . import apply_doy
 from . import io
+
+from .blocked import blocked_resample, blocked_groupby
