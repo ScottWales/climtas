@@ -47,7 +47,7 @@ class BlockedResampler:
         self.axis = self.da.get_axis_num(dim)
         self.count = count
 
-    def map(self, op):
+    def reduce(self, op):
         """Apply an arbitrary operation to each resampled group
 
         The function *op* is applied to each group. The grouping axis is given
@@ -110,33 +110,34 @@ class BlockedResampler:
     def mean(self):
         """ Reduce the samples using numpy.mean
         """
-        return self.map(numpy.mean)
+        return self.reduce(numpy.mean)
 
     def min(self):
         """ Reduce the samples using numpy.min
         """
-        return self.map(numpy.min)
+        return self.reduce(numpy.min)
 
     def max(self):
         """ Reduce the samples using numpy.max
         """
-        return self.map(numpy.max)
+        return self.reduce(numpy.max)
 
     def sum(self):
         """ Reduce the samples using numpy.count
         """
-        return self.map(numpy.sum)
+        return self.reduce(numpy.sum)
 
 
 def blocked_resample(da, indexer=None, **kwargs):
     """Create a blocked resampler
 
+    Mostly works like :func:`xarray.resample`, however unlike Xarray's resample
+    this will maintain the same number of Dask chunks
+
     The input data is grouped into blocks of length count along dim for further
     operations (see :class:`BlockedResampler`)
 
     Count must evenly divide the size of each block along the target axis
-
-    Unlike Xarray's resample this will maintain the same number of Dask chunks
 
     >>> time = pandas.date_range('20010101','20010110', freq='H', closed='left')
     >>> hourly = xarray.DataArray(numpy.random.random(time.size), coords=[('time', time)])
@@ -157,3 +158,129 @@ def blocked_resample(da, indexer=None, **kwargs):
     assert len(indexer) == 1
     dim, count = list(indexer.items())[0]
     return BlockedResampler(da, dim=dim, count=count)
+
+
+class BlockedGroupby():
+    def __init__(self, da, grouping, dim='time'):
+        self.da = da
+        self.grouping = grouping
+        self.dim = dim
+
+    def _block_data(self, da):
+        years = da.groupby(f'{self.dim}.year')
+        axis = da.get_axis_num(self.dim)
+        blocks = []
+
+        expand = dask.array.full_like(da.isel({self.dim: slice(0,1)}).data, numpy.nan)
+
+        for y, d in years:
+            if d.shape[axis] == 365:
+                if self.grouping == 'dayofyear':
+                    blocks.append(dask.array.concatenate([d.data, expand], axis=axis))
+                elif self.grouping == 'monthday':
+                    blocks.append(dask.array.concatenate([
+                        d.isel({self.dim: slice(None, 31+28)}).data, expand, d.isel({self.dim: slice(31+28, None)}).data], axis=axis))
+                else:
+                    raise Exception()
+            elif d.shape[axis] == 366:
+                blocks.append(d.data)
+
+        data = dask.array.stack(blocks, axis=0)
+
+        return data, axis+1
+
+    def block_dataarray(self):
+        data, block_axis = self._block_data(self.da)
+
+        dims = list(self.da.dims)
+        dims.insert(0, 'year')
+        dims[block_axis] = self.grouping
+
+        da = xarray.DataArray(data, dims=dims)
+
+        for d in dims:
+            if d in self.da.coords:
+                try:
+                    da.coords[d] = self.da.coords[d]
+                except ValueError:
+                    # Repeat dimension name or something
+                    pass
+
+        if self.grouping == 'dayofyear':
+            da.coords['dayofyear'] = ('dayofyear', range(1,367))
+
+        if self.grouping == 'monthday':
+            # Grab dates from a sample leap year
+            basis = pandas.date_range('20040101','20050101', freq='D', closed='left')
+            da.coords['month'] = ('monthday', basis.month)
+            da.coords['day'] = ('monthday', basis.day)
+
+        return da
+
+    def reduce(self, op, **kwargs):
+        block_da = self.block_dataarray()
+
+        return block_da.reduce(op, dim='year', **kwargs)
+
+    def mean(self):
+        """ Reduce the samples using numpy.mean
+        """
+        return self.block_dataarray().mean(dim='year')
+
+    def min(self):
+        """ Reduce the samples using numpy.min
+        """
+        return self.block_dataarray().min(dim='year')
+
+    def max(self):
+        """ Reduce the samples using numpy.max
+        """
+        return self.block_dataarray().max(dim='year')
+
+    def sum(self):
+        """ Reduce the samples using numpy.sum
+        """
+        return self.block_dataarray().sum(dim='year')
+
+    def percentile(self, q):
+        """ Reduce the samples using numpy.percentile
+        """
+        return self.block_dataarray().reduce(numpy.nanpercentile, q=q)
+
+
+def blocked_groupby(da, indexer=None, **kwargs):
+    """Create a blocked groupby
+
+    Mostly works like :func:`xarray.groupby`, however this will have better
+    chunking behaviour at the expense of only working with data regularly
+    spaced in time.
+
+    *grouping* may be one of:
+
+     - 'dayofyear': Group by number of days since the start of the year
+     - 'monthday': Group by ('month', 'day')
+
+    >>> time = pandas.date_range('20020101','20050101', freq='D', closed='left')
+    >>> hourly = xarray.DataArray(numpy.random.random(time.size), coords=[('time', time)])
+
+    >>> blocked_doy_max = blocked_groupby(hourly, time='dayofyear').max()
+    >>> xarray_doy_max = hourly.groupby('time.dayofyear').max()
+    >>> xarray.testing.assert_equal(blocked_doy_max, xarray_doy_max)
+
+    Args:
+        da (:class:`xarray.DataArray`): Resample target
+        **kwargs ({dim:grouping}): Mapping of dimension name to grouping type
+
+    Returns:
+        :class:`BlockedResampler`
+    """
+    if indexer is None:
+        indexer = kwargs
+    assert len(indexer) == 1
+    dim, grouping = list(indexer.items())[0]
+
+    if grouping in ['dayofyear', 'monthday']:
+        return BlockedGroupby(da, dim=dim, grouping=grouping)
+    else:
+        raise NotImplementedError(f'Grouping {grouping} is not implemented')
+
