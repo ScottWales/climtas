@@ -20,7 +20,12 @@ climtas
 Functions for working with large (> 10 GB) datasets using Xarray and Dask,
 especially for working in the time domain
 
-* `Apply a function grouping by day of year, without massive numbers of dask chunks <https://climtas.readthedocs.io/en/latest/api.html#module-climtas.apply_doy>`_:
+Topics
+------
+
+* `Apply a function grouping by day of year, without massive numbers of dask chunks <https://climtas.readthedocs.io/en/latest/api.html#module-climtas.blocked>`_:
+
+Example notebook: `ERA-5 90th percentile climatology <https://nbviewer.jupyter.org/github/ScottWales/climtas/blob/master/notebooks/era5-heatwave.ipynb>`_
 
 .. code-block:: python
 
@@ -54,5 +59,8 @@ especially for working in the time domain
 
 * `Memory-saving write to NetCDF <https://climtas.readthedocs.io/en/latest/api.html#module-climtas.io>`_
 
-See the examples in the `notebooks <notebooks>`_ directory for ideas on how to
+Examples
+--------
+
+See the examples in the `notebooks <notebooks>`_ directory for mores ideas on how to
 use these functions to analyse large datasets
