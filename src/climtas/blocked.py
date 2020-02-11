@@ -47,8 +47,18 @@ class BlockedResampler:
         self.axis = self.da.get_axis_num(dim)
         self.count = count
 
+        # Safety checks
+        if dim not in da.coords:
+            raise Exception(f"{dim} is not a coordinate")
+        if da.sizes[dim] % count != 0:
+            raise Exception(f"Count {count} does not evenly divide the size of {dim} ({da.sizes[dim]})")
+        expected_coord = pandas.date_range(da.coords[dim].data[0], freq=(
+            pandas.to_datetime(da.coords[dim].data[1])-pandas.to_datetime(da.coords[dim].data[0])), periods=da.sizes[dim])
+        if not numpy.array_equal(da.coords[dim], expected_coord):
+            raise Exception(f"{dim} has an irregular period")
+
     def reduce(self, op, **kwargs):
-        """Apply an arbitrary operation to each resampled group
+        r"""Apply an arbitrary operation to each resampled group
 
         The function *op* is applied to each group. The grouping axis is given
         by *axis*, this axis should be reduced out by *op* (e.g. like
@@ -188,7 +198,15 @@ class BlockedGroupby:
         )
 
         if not numpy.array_equal(da[dim], expected_time):
-            raise Exception("Expected {dim} to be regularly spaced daily data")
+            raise Exception(f"Expected {dim} to be regularly spaced daily data")
+
+        begin = pandas.to_datetime(da.coords[dim].data[0]) - pandas.tseries.offsets.YearBegin(n=0)
+        if begin != da.coords[dim][0]:
+            raise Exception(f"{dim} does not start on Jan 1")
+
+        end = pandas.to_datetime(da.coords[dim].data[-1]) + pandas.tseries.offsets.YearEnd(n=0)
+        if end != da.coords[dim][-1]:
+            raise Exception(f"{dim} does not end on Dec 31")
 
     def _group_year(self, d, axis, empty):
         if d.shape[axis] == 365:
@@ -318,7 +336,7 @@ class BlockedGroupby:
         return result
 
     def apply(self, op, **kwargs):
-        """Apply a function to the blocked data
+        r"""Apply a function to the blocked data
 
         *self.da* is blocked to replace the *self.dim* dimension with two new
         dimensions, 'year' and *self.grouping*. *op* is then run on the data,
@@ -340,7 +358,7 @@ class BlockedGroupby:
         return self.unblock_dataarray(result)
 
     def reduce(self, op, **kwargs):
-        """Reduce the data over 'year' using *op*
+        r"""Reduce the data over 'year' using *op*
 
         *self.da* is blocked to replace the *self.dim* dimension with two new
         dimensions, 'year' and *self.grouping*. *op* is then run on the data to
