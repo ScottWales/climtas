@@ -251,6 +251,32 @@ class BlockedGroupby:
 
         return da
 
+    def apply(self, op, **kwargs):
+        block_da = self.block_dataarray()
+        result = op(block_da, **kwargs)
+
+        axis = result.get_axis_num(self.grouping) - 1
+
+        blocks = []
+
+        source_groups = self.da.groupby(f"{self.dim}.year")
+        result_groups = result.groupby("year")
+
+        # Turn back into a time series
+        for sg, rg in zip(source_groups, result_groups):
+            s = sg[1]
+            r = rg[1]
+
+            # Align r to s's time axis
+            blocks.append(self._ungroup_year(s, axis, r))
+
+        data = dask.array.concatenate(blocks, axis=axis)
+
+        # Return a dataarray with the original coordinates
+        result = xarray.DataArray(data, dims=self.da.dims, coords=self.da.coords)
+
+        return result
+
     def reduce(self, op, **kwargs):
         block_da = self.block_dataarray()
 

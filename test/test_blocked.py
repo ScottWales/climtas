@@ -111,3 +111,13 @@ def test_groupby_percentile():
     )
 
     numpy.testing.assert_array_equal(climatology_xr[:-1], climatology[:-1])
+
+
+def test_groupby_apply():
+    time = pandas.date_range("20020101", "20050101", freq="D", closed="left")
+    hourly = xarray.DataArray(
+        dask.array.random.random(time.size, chunks=50), coords=[("time", time)]
+    )
+
+    blocked_double = blocked_groupby(hourly, time="dayofyear").apply(lambda x: x*2)
+    xarray.testing.assert_equal(hourly * 2, blocked_double)
