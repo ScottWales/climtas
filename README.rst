@@ -30,7 +30,7 @@ Example notebook: `ERA-5 90th percentile climatology <https://nbviewer.jupyter.o
 .. code-block:: python
 
     >>> import numpy; import pandas; import xarray
-    >>> time = pandas.date_range("20010101", "20030101")
+    >>> time = pandas.date_range("20010101", "20030101", closed="left")
     >>> data = numpy.random.rand(len(time))
     >>> da = xarray.DataArray(data, coords=[("time", time)])
     >>> da = da.chunk({"time": 365})

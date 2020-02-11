@@ -47,7 +47,7 @@ class BlockedResampler:
         self.axis = self.da.get_axis_num(dim)
         self.count = count
 
-    def reduce(self, op):
+    def reduce(self, op, **kwargs):
         """Apply an arbitrary operation to each resampled group
 
         The function *op* is applied to each group. The grouping axis is given
@@ -55,8 +55,9 @@ class BlockedResampler:
         :func:`numpy.mean` does)
 
         Args:
-            op ((:class:`numpy.array`, axis) -> (:class:`numpy.array`)):
+            op ((:class:`numpy.array`, axis, \*\*kwargs) -> :class:`numpy.array`):
                 Function to reduce out the resampled dimension
+            **kwargs: Passed to *op*
 
         Returns:
             A resampled :class:`xarray.DataArray`, where every *self.count*
@@ -71,7 +72,7 @@ class BlockedResampler:
             shape[axis] //= count
             shape.insert(axis + 1, count)
             reshaped = block.reshape(shape)
-            return op(reshaped, axis=(axis + 1))
+            return op(reshaped, axis=(axis + 1), **kwargs)
 
         data = self.da.data
         if not isinstance(data, dask.array.Array):
@@ -148,7 +149,7 @@ def blocked_resample(da, indexer=None, **kwargs):
     
     Args:
         da (:class:`xarray.DataArray`): Resample target
-        **kwargs ({dim:count}): Mapping of dimension name to count along that axis
+        indexer/kwargs (Dict[dim, count]): Mapping of dimension name to count along that axis
 
     Returns:
         :class:`BlockedResampler`
@@ -161,7 +162,22 @@ def blocked_resample(da, indexer=None, **kwargs):
 
 
 class BlockedGroupby:
+    """A blocked groupby operation
+
+    Works like :class:`xarray.core.groupby.DataArrayGroupBy`, with the
+    constraint that the data contains no partial years
+
+    The benefit of this restriction is that no extra Dask chunks are
+    created by the grouping, which is important for large datasets.
+    """
+
     def __init__(self, da, grouping, dim="time"):
+        """
+        Args:
+            da (:class:`xarray.DataArray`): Input DataArray
+            dim (:class:`str`): Dimension to group over
+            grouping ('dayofyear' or 'monthday'): Grouping type
+        """
         self.da = da
         self.grouping = grouping
         self.dim = dim
@@ -224,6 +240,26 @@ class BlockedGroupby:
         return data, axis + 1
 
     def block_dataarray(self):
+        """Reshape *self.da* to have a 'year' and a *self.grouping* axis
+
+        The *self.dim* axis is grouped up into individual years, then for each
+        year that group's *self.dim* is converted into *self.grouping*, so that
+        leap years and non-leap years have the same length. The groups are then
+        stacked together to create a new DataArray with 'year' as the first
+        dimension and *self.grouping* replacing *self.dim*.
+
+        Data for a leap year *self.grouping* in a non-leap year is NAN
+
+        Returns:
+            The reshaped :obj:`xarray.DataArray`
+
+        See:
+
+        * :meth:`apply` will block the data, apply a function and then
+          unblock the data
+        * :meth:`unblock_dataarray` will convert a DataArray shaped like this
+          method's output back into a DataArray shaped like *self.da*
+        """
         data, block_axis = self._block_data(self.da)
 
         dims = list(self.da.dims)
@@ -251,33 +287,147 @@ class BlockedGroupby:
 
         return da
 
+    def unblock_dataarray(self, da):
+        """Inverse of :meth:`block_dataarray`
+
+        Given a DataArray constructed by :meth:`block_dataarray`, returns an
+        ungrouped DataArray with the original *self.dim* axis from *self.da*.
+
+        Data for a leap year *self.grouping* in a non-leap year is dropped
+        """
+        axis = da.get_axis_num(self.grouping) - 1
+
+        blocks = []
+
+        source_groups = self.da.groupby(f"{self.dim}.year")
+        result_groups = da.groupby("year")
+
+        # Turn back into a time series
+        for sg, rg in zip(source_groups, result_groups):
+            s = sg[1]
+            r = rg[1]
+
+            # Align r to s's time axis
+            blocks.append(self._ungroup_year(s, axis, r))
+
+        data = dask.array.concatenate(blocks, axis=axis)
+
+        # Return a dataarray with the original coordinates
+        result = xarray.DataArray(data, dims=self.da.dims, coords=self.da.coords)
+
+        return result
+
+    def apply(self, op, **kwargs):
+        """Apply a function to the blocked data
+
+        *self.da* is blocked to replace the *self.dim* dimension with two new
+        dimensions, 'year' and *self.grouping*. *op* is then run on the data,
+        and the result is converted back to the shape of *self.da*.
+
+        Use this to e.g. group the data by 'dayofyear', then rank each 'dayofyear'
+        over the 'year' dimension
+
+        Args:
+            op ((:obj:`xarray.DataArray`, \*\*kwargs) -> :obj:`xarray.DataArray`): Function to apply
+            **kwargs: Passed to op
+
+        Returns:
+            :obj:`xarray.DataArray` shaped like *self.da*
+        """
+        block_da = self.block_dataarray()
+        result = op(block_da, **kwargs)
+
+        return self.unblock_dataarray(result)
+
     def reduce(self, op, **kwargs):
+        """Reduce the data over 'year' using *op*
+
+        *self.da* is blocked to replace the *self.dim* dimension with two new
+        dimensions, 'year' and *self.grouping*. *op* is then run on the data to
+        remove the 'year' dimension
+
+        Note there will be NAN values in the data when there isn't a
+        *self.grouping* value for that year (e.g. dayofyear = 366 or (month, day)
+        = (2, 29) in a non-leap year)
+
+        Use this to e.g. group the data by 'dayofyear', then get the mean values
+        at each 'dayofyear'
+
+        Args:
+            op ((:obj:`xarray.DataArray`, \*\*kwargs) -> :obj:`xarray.DataArray`): Function to apply
+            **kwargs: Passed to op
+
+        Returns:
+            :obj:`xarray.DataArray` shaped like *self.da*, but with *self.dim*
+            replaced by *self.grouping*
+        """
         block_da = self.block_dataarray()
 
         return block_da.reduce(op, dim="year", **kwargs)
 
     def mean(self):
-        """ Reduce the samples using numpy.mean
+        """ Reduce the samples using :func:`numpy.mean`
+
+        See: :meth:`reduce`
         """
         return self.block_dataarray().mean(dim="year")
 
     def min(self):
-        """ Reduce the samples using numpy.min
+        """ Reduce the samples using :func:`numpy.min`
+
+        See: :meth:`reduce`
         """
         return self.block_dataarray().min(dim="year")
 
     def max(self):
-        """ Reduce the samples using numpy.max
+        """ Reduce the samples using :func:`numpy.max`
+
+        See: :meth:`reduce`
         """
         return self.block_dataarray().max(dim="year")
 
     def sum(self):
-        """ Reduce the samples using numpy.sum
+        """ Reduce the samples using :func:`numpy.sum`
+
+        See: :meth:`reduce`
         """
         return self.block_dataarray().sum(dim="year")
 
+    def nanpercentile(self, q):
+        """ Reduce the samples using :func:`numpy.nanpercentile` over the 'year' axis
+
+        Slower than :meth:`percentile`, but will be correct if there's
+        missing data (e.g. on leap days)
+
+        Args:
+            q (:obj:`float`): Percentile within the interval [0, 100]
+
+        See: :meth:`reduce`, :meth:`percentile`
+        """
+        block_da = self.block_dataarray()
+        block_da = block_da.chunk({"year": None})
+        data = block_da.data.map_blocks(
+            numpy.nanpercentile, q=q, axis=0, dtype=block_da.dtype, drop_axis=0
+        )
+
+        result = xarray.DataArray(data, dims=block_da.dims[1:])
+        for d in block_da.coords:
+            try:
+                result.coords[d] = block_da.coords[d]
+            except ValueError:
+                pass
+        return result
+
     def percentile(self, q):
-        """ Reduce the samples using numpy.percentile
+        """ Reduce the samples using :func:`numpy.percentile` over the 'year' axis
+
+        Faster than :meth:`nanpercentile`, but may be incorrect if there's
+        missing data (e.g. on leap days)
+
+        Args:
+            q (:obj:`float`): Percentile within the interval [0, 100]
+
+        See: :meth:`reduce`, :meth:`nanpercentile`
         """
         block_da = self.block_dataarray()
         block_da = block_da.chunk({"year": None})
@@ -293,7 +443,32 @@ class BlockedGroupby:
                 pass
         return result
 
+    def rank(self, method="average"):
+        """ Rank the samples using :func:`scipy.stats.rankdata` over the 'year' axis
+
+        Args:
+            method: See :func:`scipy.stats.rankdata`
+
+        See: :meth:`apply`
+        """
+
+        def ranker(da):
+            axis = da.get_axis_num("year")
+
+            def helper(array):
+                return dask.array.apply_along_axis(
+                    scipy.stats.rankdata, axis, array, method=method
+                )
+
+            return xarray.apply_ufunc(
+                helper, da, dask="parallelized", output_dtypes=[da.dtype]
+            )
+
+        return self.apply(ranker)
+
     def _binary_op(self, other, op):
+        """Generic binary operation (add, subtract etc.)
+        """
         if not isinstance(other, xarray.DataArray):
             raise Exception()
 
@@ -354,7 +529,7 @@ def blocked_groupby(da, indexer=None, **kwargs):
 
     Args:
         da (:class:`xarray.DataArray`): Resample target
-        **kwargs ({dim:grouping}): Mapping of dimension name to grouping type
+        indexer/kwargs (Dict[dim, grouping]): Mapping of dimension name to grouping type
 
     Returns:
         :class:`BlockedResampler`
