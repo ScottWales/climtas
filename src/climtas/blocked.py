@@ -443,7 +443,7 @@ class BlockedGroupby:
                 pass
         return result
 
-    def rank(self, method='average'):
+    def rank(self, method="average"):
         """ Rank the samples using :func:`scipy.stats.rankdata` over the 'year' axis
 
         Args:
@@ -451,11 +451,19 @@ class BlockedGroupby:
 
         See: :meth:`apply`
         """
+
         def ranker(da):
-            axis = da.get_axis_num('year')
+            axis = da.get_axis_num("year")
+
             def helper(array):
-                return dask.array.apply_along_axis(scipy.stats.rankdata, axis, array, method=method)
-            return xarray.apply_ufunc(helper, da, dask='parallelized', output_dtypes=[da.dtype])
+                return dask.array.apply_along_axis(
+                    scipy.stats.rankdata, axis, array, method=method
+                )
+
+            return xarray.apply_ufunc(
+                helper, da, dask="parallelized", output_dtypes=[da.dtype]
+            )
+
         return self.apply(ranker)
 
     def _binary_op(self, other, op):
