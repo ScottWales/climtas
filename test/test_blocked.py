@@ -114,6 +114,8 @@ def test_groupby_percentile():
 
 
 def test_groupby_apply():
+    import scipy.stats
+
     time = pandas.date_range("20020101", "20050101", freq="D", closed="left")
     hourly = xarray.DataArray(
         dask.array.random.random(time.size, chunks=50), coords=[("time", time)]
@@ -121,3 +123,8 @@ def test_groupby_apply():
 
     blocked_double = blocked_groupby(hourly, time="dayofyear").apply(lambda x: x*2)
     xarray.testing.assert_equal(hourly * 2, blocked_double)
+
+    def rank(data):
+        return dask.array.apply_along_axis(scipy.stats.rankdata, 0, data)
+
+    blocked_groupby(hourly, time="dayofyear").apply(rank)
