@@ -33,6 +33,17 @@ def test_groupby_dayofyear():
             getattr(blocked_doy, op)(), getattr(xarray_doy, op)()
         )
 
+    time = pandas.date_range("20020101", "20030101", freq="D", closed="left")
+    hourly = xarray.DataArray(numpy.random.random(time.size), coords=[("time", time)])
+
+    blocked_doy = blocked_groupby(hourly, time="dayofyear")
+    xarray_doy = hourly.groupby("time.dayofyear")
+
+    for op in "min", "max", "mean", "sum":
+        xarray.testing.assert_equal(
+            getattr(blocked_doy, op)()[0:365], getattr(xarray_doy, op)()
+        )
+
 
 def test_groupby_dayofyear_dask():
     time = pandas.date_range("20020101", "20050101", freq="D", closed="left")
@@ -124,7 +135,4 @@ def test_groupby_apply():
     blocked_double = blocked_groupby(hourly, time="dayofyear").apply(lambda x: x*2)
     xarray.testing.assert_equal(hourly * 2, blocked_double)
 
-    def rank(data):
-        return dask.array.apply_along_axis(scipy.stats.rankdata, 0, data)
-
-    blocked_groupby(hourly, time="dayofyear").apply(rank)
+    blocked_rank = blocked_groupby(hourly, time="dayofyear").rank()
