@@ -22,7 +22,7 @@ import numpy
 import pandas
 import dask.array
 import typing as T
-from typing_extensions import Protocol
+from typing import Protocol
 
 
 class DataArrayFunction(Protocol):
