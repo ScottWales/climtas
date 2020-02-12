@@ -24,11 +24,16 @@ import dask.array
 import typing as T
 from typing_extensions import Protocol
 
+
 class DataArrayFunction(Protocol):
-    def __call__(self, da: xarray.DataArray, **kwargs) -> xarray.DataArray: ...
+    def __call__(self, da: xarray.DataArray, **kwargs) -> xarray.DataArray:
+        ...
+
 
 class NumpyFunction(Protocol):
-    def __call__(self, __d: numpy.array, axis: int, **kwargs) -> numpy.array: ...
+    def __call__(self, __d: numpy.array, axis: int, **kwargs) -> numpy.array:
+        ...
+
 
 class BlockedResampler:
     """A blocked resampling operation
@@ -196,7 +201,7 @@ class BlockedGroupby:
     created by the grouping, which is important for large datasets.
     """
 
-    def __init__(self, da: xarray.DataArray, grouping: str, dim: str="time"):
+    def __init__(self, da: xarray.DataArray, grouping: str, dim: str = "time"):
         """
         Args:
             da (:class:`xarray.DataArray`): Input DataArray
@@ -480,7 +485,7 @@ class BlockedGroupby:
                 pass
         return result
 
-    def rank(self, method: str="average") -> xarray.DataArray:
+    def rank(self, method: str = "average") -> xarray.DataArray:
         """ Rank the samples using :func:`scipy.stats.rankdata` over the 'year' axis
 
         Args:
