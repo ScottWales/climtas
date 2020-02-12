@@ -497,15 +497,28 @@ class BlockedGroupby:
 
         def ranker(da: xarray.DataArray, **kwargs) -> xarray.DataArray:
             axis = da.get_axis_num("year")
+            da = da.load()
 
-            def helper(array):
-                return dask.array.apply_along_axis(
+            def rank_along_axis(array):
+                return numpy.apply_along_axis(
                     scipy.stats.rankdata, axis, array, method=method
                 )
 
-            return xarray.apply_ufunc(
-                helper, da, dask="parallelized", output_dtypes=[da.dtype]
+            def blocked_rank(array):
+                chunks = list(array.chunks)
+                chunks[axis] = -1
+                array = array.rechunk(chunks)
+                return dask.array.map_blocks(rank_along_axis, array)
+
+            if isinstance(da.data, dask.array.Array):
+                aranker = blocked_rank
+            else:
+                aranker = rank_along_axis
+
+            result = xarray.apply_ufunc(
+                aranker, da, dask="parallelized", output_dtypes=[da.dtype]
             )
+            return result
 
         return self.apply(ranker)
 

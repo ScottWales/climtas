@@ -22,23 +22,34 @@ from climtas.helpers import *
 import pytest
 
 
-def test_groupby_dayofyear():
+@pytest.fixture(params=['daily', 'daily_dask'])
+def sample(request):
+    time = pandas.date_range("20020101", "20050101", freq="D", closed="left")
+
+    samples = {
+            'daily': xarray.DataArray(numpy.random.random(time.size), coords=[("time", time)]),
+            'daily_dask': xarray.DataArray(dask.array.random.random(time.size), coords=[("time", time)]),
+    }
+
+    return samples[request.param]
+
+
+def test_groupby_dayofyear(sample):
     time = pandas.date_range("20020101", "20050101", freq="D", closed="left")
     daily = xarray.DataArray(numpy.random.random(time.size), coords=[("time", time)])
 
-    blocked_doy = blocked_groupby(daily, time="dayofyear")
-    xarray_doy = daily.groupby("time.dayofyear")
+    blocked_doy = blocked_groupby(sample, time="dayofyear")
+    xarray_doy = sample.groupby("time.dayofyear")
 
     for op in "min", "max", "mean", "sum":
         xarray.testing.assert_equal(
             getattr(blocked_doy, op)(), getattr(xarray_doy, op)()
         )
 
-    time = pandas.date_range("20020101", "20030101", freq="D", closed="left")
-    daily = xarray.DataArray(numpy.random.random(time.size), coords=[("time", time)])
+    sample = sample.sel(time=slice("20020101","20031231"))
 
-    blocked_doy = blocked_groupby(daily, time="dayofyear")
-    xarray_doy = daily.groupby("time.dayofyear")
+    blocked_doy = blocked_groupby(sample, time="dayofyear")
+    xarray_doy = sample.groupby("time.dayofyear")
 
     for op in "min", "max", "mean", "sum":
         xarray.testing.assert_equal(
@@ -62,14 +73,11 @@ def test_groupby_dayofyear_dask():
     assert graph_size(blocked_doy_max) <= 0.2 * graph_size(xarray_doy_max)
 
 
-def test_groupby_monthday():
-    time = pandas.date_range("20020101", "20050101", freq="D", closed="left")
-    daily = xarray.DataArray(numpy.random.random(time.size), coords=[("time", time)])
+def test_groupby_monthday(sample):
+    blocked_doy = blocked_groupby(sample, time="monthday")
 
-    blocked_doy = blocked_groupby(daily, time="monthday")
-
-    daily.coords["monthday"] = daily.time.dt.month * 100 + daily.time.dt.day
-    xarray_doy = daily.groupby("monthday")
+    sample.coords["monthday"] = sample.time.dt.month * 100 + sample.time.dt.day
+    xarray_doy = sample.groupby("monthday")
 
     for op in "min", "max", "mean", "sum":
         numpy.testing.assert_array_equal(
@@ -95,91 +103,75 @@ def test_groupby_monthday_dask():
     assert graph_size(blocked_doy_max) <= 0.2 * graph_size(xarray_doy_max)
 
 
-def test_groupby_climatology():
-    time = pandas.date_range("20020101", "20050101", freq="D", closed="left")
-    daily = xarray.DataArray(
-        dask.array.random.random(time.size, chunks=50), coords=[("time", time)]
-    )
+def test_groupby_climatology(sample):
 
-    climatology = blocked_groupby(daily, time="dayofyear").mean()
-    delta = blocked_groupby(daily, time="dayofyear") - climatology
+    climatology = blocked_groupby(sample, time="dayofyear").mean()
+    delta = blocked_groupby(sample, time="dayofyear") - climatology
 
-    climatology_xr = daily.groupby("time.dayofyear").mean()
-    delta_xr = daily.groupby("time.dayofyear") - climatology_xr
+    climatology_xr = sample.groupby("time.dayofyear").mean()
+    delta_xr = sample.groupby("time.dayofyear") - climatology_xr
 
     numpy.testing.assert_array_equal(delta_xr, delta)
 
 
-def test_groupby_percentile():
-    time = pandas.date_range("20020101", "20050101", freq="D", closed="left")
-    daily = xarray.DataArray(
-        dask.array.random.random(time.size, chunks=50), coords=[("time", time)]
-    )
-
-    climatology = blocked_groupby(daily, time="dayofyear").percentile(90)
+def test_groupby_percentile(sample):
+    climatology = blocked_groupby(sample, time="dayofyear").percentile(90)
 
     climatology_xr = (
-        daily.load().groupby("time.dayofyear").reduce(numpy.percentile, q=90)
+        sample.load().groupby("time.dayofyear").reduce(numpy.percentile, q=90)
     )
 
     numpy.testing.assert_array_equal(climatology_xr[:-1], climatology[:-1])
 
 
-def test_groupby_apply():
-    import scipy.stats
+def test_groupby_apply(sample):
 
-    time = pandas.date_range("20020101", "20050101", freq="D", closed="left")
-    daily = xarray.DataArray(
-        dask.array.random.random(time.size, chunks=50), coords=[("time", time)]
-    )
+    blocked_double = blocked_groupby(sample, time="dayofyear").apply(lambda x: x * 2)
+    xarray.testing.assert_equal(sample * 2, blocked_double)
 
-    blocked_double = blocked_groupby(daily, time="dayofyear").apply(lambda x: x * 2)
-    xarray.testing.assert_equal(daily * 2, blocked_double)
+    sample = sample.load()
+    sample[:] = sample.time.dt.year[:]
+    blocked_rank = blocked_groupby(sample, time="dayofyear").rank()
 
-    blocked_rank = blocked_groupby(daily, time="dayofyear").rank()
+    assert blocked_rank.sel(time='20020101').values.item() == 1
+    assert blocked_rank.sel(time='20030101').values.item() == 2
+    assert blocked_rank.sel(time='20040101').values.item() == 3
 
 
-def test_resample_safety():
-    time = pandas.date_range("20020101", "20050101", freq="D", closed="left")
-    daily = xarray.DataArray(
-        dask.array.random.random(time.size, chunks=50), coords=[("time", time)]
-    )
+def test_resample_safety(sample):
 
     # Not a coordinate
+    sliced = sample
     with pytest.raises(Exception):
         blocked_resample(sliced, x=24)
 
     # Samples doesn't evenly divide length
-    sliced = daily[0:15]
+    sliced = sample[0:15]
     with pytest.raises(Exception):
         blocked_resample(sliced, time=24)
 
     # Irregular
-    sliced = xarray.concat([daily[0:15], daily[17:26]], dim="time")
+    sliced = xarray.concat([sample[0:15], sample[17:26]], dim="time")
     assert sliced.size == 24
     with pytest.raises(Exception):
         blocked_resample(sliced, time=24)
 
 
-def test_groupby_safety():
-    time = pandas.date_range("20020101", "20050101", freq="D", closed="left")
-    daily = xarray.DataArray(
-        dask.array.random.random(time.size, chunks=50), coords=[("time", time)]
-    )
-
+def test_groupby_safety(sample):
     # Not a coordinate
+    sliced = sample
     with pytest.raises(Exception):
         blocked_groupby(sliced, x="dayofyear")
 
     # Samples don't cover a full year
-    sliced = daily[1:365]
+    sliced = sample[1:365]
     with pytest.raises(Exception):
         blocked_groupby(sliced, time="dayofyear")
 
-    sliced = daily[0:364]
+    sliced = sample[0:364]
     with pytest.raises(Exception):
         blocked_groupby(sliced, time="dayofyear")
 
-    sliced = xarray.concat([daily[0:15], daily[17:365]], dim="time")
+    sliced = xarray.concat([sample[0:15], sample[17:365]], dim="time")
     with pytest.raises(Exception):
         blocked_groupby(sliced, time="dayofyear")
