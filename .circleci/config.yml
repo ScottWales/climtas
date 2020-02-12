@@ -7,10 +7,14 @@ jobs:
             TEST_OUTPUT: /tmp/artifacts
         steps:
             - checkout
-            - run: conda install conda-build conda-verify codecov black
+            - run: conda install conda-build conda-verify codecov black mypy
             - run: |
                 mkdir -p ${TEST_OUTPUT}
                 conda build .
+            - run:
+                name: Type checking with mypy
+                command: mypy
+                when: always
             - run:
                 name: Checking if 'black' needs to be run
                 command: black --check --diff .
