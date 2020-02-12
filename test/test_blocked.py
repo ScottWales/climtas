@@ -22,13 +22,17 @@ from climtas.helpers import *
 import pytest
 
 
-@pytest.fixture(params=['daily', 'daily_dask'])
+@pytest.fixture(params=["daily", "daily_dask"])
 def sample(request):
     time = pandas.date_range("20020101", "20050101", freq="D", closed="left")
 
     samples = {
-            'daily': xarray.DataArray(numpy.random.random(time.size), coords=[("time", time)]),
-            'daily_dask': xarray.DataArray(dask.array.random.random(time.size), coords=[("time", time)]),
+        "daily": xarray.DataArray(
+            numpy.random.random(time.size), coords=[("time", time)]
+        ),
+        "daily_dask": xarray.DataArray(
+            dask.array.random.random(time.size), coords=[("time", time)]
+        ),
     }
 
     return samples[request.param]
@@ -46,7 +50,7 @@ def test_groupby_dayofyear(sample):
             getattr(blocked_doy, op)(), getattr(xarray_doy, op)()
         )
 
-    sample = sample.sel(time=slice("20020101","20031231"))
+    sample = sample.sel(time=slice("20020101", "20031231"))
 
     blocked_doy = blocked_groupby(sample, time="dayofyear")
     xarray_doy = sample.groupby("time.dayofyear")
@@ -133,9 +137,9 @@ def test_groupby_apply(sample):
     sample[:] = sample.time.dt.year[:]
     blocked_rank = blocked_groupby(sample, time="dayofyear").rank()
 
-    assert blocked_rank.sel(time='20020101').values.item() == 1
-    assert blocked_rank.sel(time='20030101').values.item() == 2
-    assert blocked_rank.sel(time='20040101').values.item() == 3
+    assert blocked_rank.sel(time="20020101").values.item() == 1
+    assert blocked_rank.sel(time="20030101").values.item() == 2
+    assert blocked_rank.sel(time="20040101").values.item() == 3
 
 
 def test_resample_safety(sample):
