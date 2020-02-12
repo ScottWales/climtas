@@ -7,14 +7,10 @@ jobs:
             TEST_OUTPUT: /tmp/artifacts
         steps:
             - checkout
-            - run: conda install conda-build conda-verify codecov black
+            - run: conda install conda-build conda-verify codecov
             - run: |
                 mkdir -p ${TEST_OUTPUT}
                 conda build .
-            - run:
-                name: Checking if 'black' needs to be run
-                command: black --check --diff .
-                when: always
             - run: 
                 name: Upload codecov
                 command: |
@@ -26,3 +22,31 @@ jobs:
                 path: /tmp/artifacts
             - store_test_results:
                 path: /tmp/artifacts/pytest
+    black-check:
+        docker:
+            - image: continuumio/miniconda3
+        steps:
+            - checkout
+            - run: conda install black
+            - run:
+                name: Checking if 'black' needs to be run
+                command: black --check --diff .
+                when: always
+    mypy-check:
+        docker:
+            - image: continuumio/miniconda3
+        steps:
+            - checkout
+            - run: conda install mypy xarray
+            - run:
+                name: Type checking with mypy
+                command: mypy
+                when: always
+
+workflows:
+    version: 2
+    ci-check:
+        jobs:
+            - black-check
+            - mypy-check
+            - build

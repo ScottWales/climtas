@@ -26,6 +26,7 @@ requirements:
         - scipy
         - tqdm
         - xarray
+        - typing_extensions
 
 test:
     imports:

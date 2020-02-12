@@ -19,14 +19,15 @@ import xarray
 import pandas
 import dask.array
 from climtas.helpers import *
+import pytest
 
 
 def test_groupby_dayofyear():
     time = pandas.date_range("20020101", "20050101", freq="D", closed="left")
-    hourly = xarray.DataArray(numpy.random.random(time.size), coords=[("time", time)])
+    daily = xarray.DataArray(numpy.random.random(time.size), coords=[("time", time)])
 
-    blocked_doy = blocked_groupby(hourly, time="dayofyear")
-    xarray_doy = hourly.groupby("time.dayofyear")
+    blocked_doy = blocked_groupby(daily, time="dayofyear")
+    xarray_doy = daily.groupby("time.dayofyear")
 
     for op in "min", "max", "mean", "sum":
         xarray.testing.assert_equal(
@@ -34,10 +35,10 @@ def test_groupby_dayofyear():
         )
 
     time = pandas.date_range("20020101", "20030101", freq="D", closed="left")
-    hourly = xarray.DataArray(numpy.random.random(time.size), coords=[("time", time)])
+    daily = xarray.DataArray(numpy.random.random(time.size), coords=[("time", time)])
 
-    blocked_doy = blocked_groupby(hourly, time="dayofyear")
-    xarray_doy = hourly.groupby("time.dayofyear")
+    blocked_doy = blocked_groupby(daily, time="dayofyear")
+    xarray_doy = daily.groupby("time.dayofyear")
 
     for op in "min", "max", "mean", "sum":
         xarray.testing.assert_equal(
@@ -47,12 +48,12 @@ def test_groupby_dayofyear():
 
 def test_groupby_dayofyear_dask():
     time = pandas.date_range("20020101", "20050101", freq="D", closed="left")
-    hourly = xarray.DataArray(
+    daily = xarray.DataArray(
         dask.array.zeros(time.size, chunks=50), coords=[("time", time)]
     )
 
-    blocked_doy_max = blocked_groupby(hourly, time="dayofyear").max()
-    xarray_doy_max = hourly.groupby("time.dayofyear").max()
+    blocked_doy_max = blocked_groupby(daily, time="dayofyear").max()
+    xarray_doy_max = daily.groupby("time.dayofyear").max()
 
     # We should be making less chunks than xarray's default
     assert chunk_count(blocked_doy_max) <= 0.1 * chunk_count(xarray_doy_max)
@@ -63,12 +64,12 @@ def test_groupby_dayofyear_dask():
 
 def test_groupby_monthday():
     time = pandas.date_range("20020101", "20050101", freq="D", closed="left")
-    hourly = xarray.DataArray(numpy.random.random(time.size), coords=[("time", time)])
+    daily = xarray.DataArray(numpy.random.random(time.size), coords=[("time", time)])
 
-    blocked_doy = blocked_groupby(hourly, time="monthday")
+    blocked_doy = blocked_groupby(daily, time="monthday")
 
-    hourly.coords["monthday"] = hourly.time.dt.month * 100 + hourly.time.dt.day
-    xarray_doy = hourly.groupby("monthday")
+    daily.coords["monthday"] = daily.time.dt.month * 100 + daily.time.dt.day
+    xarray_doy = daily.groupby("monthday")
 
     for op in "min", "max", "mean", "sum":
         numpy.testing.assert_array_equal(
@@ -78,14 +79,14 @@ def test_groupby_monthday():
 
 def test_groupby_monthday_dask():
     time = pandas.date_range("20020101", "20050101", freq="D", closed="left")
-    hourly = xarray.DataArray(
+    daily = xarray.DataArray(
         dask.array.zeros(time.size, chunks=50), coords=[("time", time)]
     )
 
-    blocked_doy_max = blocked_groupby(hourly, time="monthday").max()
+    blocked_doy_max = blocked_groupby(daily, time="monthday").max()
 
-    hourly.coords["monthday"] = hourly.time.dt.month * 100 + hourly.time.dt.day
-    xarray_doy_max = hourly.groupby("monthday").max()
+    daily.coords["monthday"] = daily.time.dt.month * 100 + daily.time.dt.day
+    xarray_doy_max = daily.groupby("monthday").max()
 
     # We should be making less chunks than xarray's default
     assert chunk_count(blocked_doy_max) <= 0.1 * chunk_count(xarray_doy_max)
@@ -96,29 +97,29 @@ def test_groupby_monthday_dask():
 
 def test_groupby_climatology():
     time = pandas.date_range("20020101", "20050101", freq="D", closed="left")
-    hourly = xarray.DataArray(
+    daily = xarray.DataArray(
         dask.array.random.random(time.size, chunks=50), coords=[("time", time)]
     )
 
-    climatology = blocked_groupby(hourly, time="dayofyear").mean()
-    delta = blocked_groupby(hourly, time="dayofyear") - climatology
+    climatology = blocked_groupby(daily, time="dayofyear").mean()
+    delta = blocked_groupby(daily, time="dayofyear") - climatology
 
-    climatology_xr = hourly.groupby("time.dayofyear").mean()
-    delta_xr = hourly.groupby("time.dayofyear") - climatology_xr
+    climatology_xr = daily.groupby("time.dayofyear").mean()
+    delta_xr = daily.groupby("time.dayofyear") - climatology_xr
 
     numpy.testing.assert_array_equal(delta_xr, delta)
 
 
 def test_groupby_percentile():
     time = pandas.date_range("20020101", "20050101", freq="D", closed="left")
-    hourly = xarray.DataArray(
+    daily = xarray.DataArray(
         dask.array.random.random(time.size, chunks=50), coords=[("time", time)]
     )
 
-    climatology = blocked_groupby(hourly, time="dayofyear").percentile(90)
+    climatology = blocked_groupby(daily, time="dayofyear").percentile(90)
 
     climatology_xr = (
-        hourly.load().groupby("time.dayofyear").reduce(numpy.percentile, q=90)
+        daily.load().groupby("time.dayofyear").reduce(numpy.percentile, q=90)
     )
 
     numpy.testing.assert_array_equal(climatology_xr[:-1], climatology[:-1])
@@ -128,11 +129,57 @@ def test_groupby_apply():
     import scipy.stats
 
     time = pandas.date_range("20020101", "20050101", freq="D", closed="left")
-    hourly = xarray.DataArray(
+    daily = xarray.DataArray(
         dask.array.random.random(time.size, chunks=50), coords=[("time", time)]
     )
 
-    blocked_double = blocked_groupby(hourly, time="dayofyear").apply(lambda x: x * 2)
-    xarray.testing.assert_equal(hourly * 2, blocked_double)
+    blocked_double = blocked_groupby(daily, time="dayofyear").apply(lambda x: x * 2)
+    xarray.testing.assert_equal(daily * 2, blocked_double)
 
-    blocked_rank = blocked_groupby(hourly, time="dayofyear").rank()
+    blocked_rank = blocked_groupby(daily, time="dayofyear").rank()
+
+
+def test_resample_safety():
+    time = pandas.date_range("20020101", "20050101", freq="D", closed="left")
+    daily = xarray.DataArray(
+        dask.array.random.random(time.size, chunks=50), coords=[("time", time)]
+    )
+
+    # Not a coordinate
+    with pytest.raises(Exception):
+        blocked_resample(sliced, x=24)
+
+    # Samples doesn't evenly divide length
+    sliced = daily[0:15]
+    with pytest.raises(Exception):
+        blocked_resample(sliced, time=24)
+
+    # Irregular
+    sliced = xarray.concat([daily[0:15], daily[17:26]], dim="time")
+    assert sliced.size == 24
+    with pytest.raises(Exception):
+        blocked_resample(sliced, time=24)
+
+
+def test_groupby_safety():
+    time = pandas.date_range("20020101", "20050101", freq="D", closed="left")
+    daily = xarray.DataArray(
+        dask.array.random.random(time.size, chunks=50), coords=[("time", time)]
+    )
+
+    # Not a coordinate
+    with pytest.raises(Exception):
+        blocked_groupby(sliced, x="dayofyear")
+
+    # Samples don't cover a full year
+    sliced = daily[1:365]
+    with pytest.raises(Exception):
+        blocked_groupby(sliced, time="dayofyear")
+
+    sliced = daily[0:364]
+    with pytest.raises(Exception):
+        blocked_groupby(sliced, time="dayofyear")
+
+    sliced = xarray.concat([daily[0:15], daily[17:365]], dim="time")
+    with pytest.raises(Exception):
+        blocked_groupby(sliced, time="dayofyear")

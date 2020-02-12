@@ -24,28 +24,30 @@ These functions are low-level, and mainly intended for internal use
 """
 
 
-def chunk_count(da):
+def chunk_count(da: xarray.DataArray) -> float:
     """
     Returns the number of chunks in the dataset
     """
+    if da.chunks is None:
+        raise Exception
     return numpy.prod([len(c) for c in da.chunks])
 
 
-def chunk_size(da):
+def chunk_size(da: xarray.DataArray) -> float:
     """
     Returns the size of the first dask chunk in the dataset
     """
     return numpy.prod(da.data.chunksize) * da.data.itemsize
 
 
-def graph_size(da):
+def graph_size(da: xarray.DataArray) -> int:
     """
     Returns number of nodes in the dask graph
     """
     return len(da.__dask_graph__())
 
 
-def dask_report(da):
+def dask_report(da: xarray.DataArray) -> None:
     """
     Print info about a dask array
     """
