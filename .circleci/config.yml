@@ -7,7 +7,7 @@ jobs:
             TEST_OUTPUT: /tmp/artifacts
         steps:
             - checkout
-            - run: conda install conda-build conda-verify codecov black mypy
+            - run: conda install conda-build conda-verify codecov black mypy xarray
             - run: |
                 mkdir -p ${TEST_OUTPUT}
                 conda build .
