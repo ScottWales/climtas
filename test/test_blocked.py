@@ -155,7 +155,7 @@ def test_resample_safety():
         blocked_resample(sliced, time=24)
 
     # Irregular
-    sliced = xarray.concat([daily[0:15], daily[17:26]], dim='time')
+    sliced = xarray.concat([daily[0:15], daily[17:26]], dim="time")
     assert sliced.size == 24
     with pytest.raises(Exception):
         blocked_resample(sliced, time=24)
@@ -169,17 +169,17 @@ def test_groupby_safety():
 
     # Not a coordinate
     with pytest.raises(Exception):
-        blocked_groupby(sliced, x='dayofyear')
+        blocked_groupby(sliced, x="dayofyear")
 
     # Samples don't cover a full year
     sliced = daily[1:365]
     with pytest.raises(Exception):
-        blocked_groupby(sliced, time='dayofyear')
+        blocked_groupby(sliced, time="dayofyear")
 
     sliced = daily[0:364]
     with pytest.raises(Exception):
-        blocked_groupby(sliced, time='dayofyear')
+        blocked_groupby(sliced, time="dayofyear")
 
-    sliced = xarray.concat([daily[0:15], daily[17:365]], dim='time')
+    sliced = xarray.concat([daily[0:15], daily[17:365]], dim="time")
     with pytest.raises(Exception):
-        blocked_groupby(sliced, time='dayofyear')
+        blocked_groupby(sliced, time="dayofyear")

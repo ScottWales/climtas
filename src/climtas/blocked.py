@@ -51,9 +51,17 @@ class BlockedResampler:
         if dim not in da.coords:
             raise Exception(f"{dim} is not a coordinate")
         if da.sizes[dim] % count != 0:
-            raise Exception(f"Count {count} does not evenly divide the size of {dim} ({da.sizes[dim]})")
-        expected_coord = pandas.date_range(da.coords[dim].data[0], freq=(
-            pandas.to_datetime(da.coords[dim].data[1])-pandas.to_datetime(da.coords[dim].data[0])), periods=da.sizes[dim])
+            raise Exception(
+                f"Count {count} does not evenly divide the size of {dim} ({da.sizes[dim]})"
+            )
+        expected_coord = pandas.date_range(
+            da.coords[dim].data[0],
+            freq=(
+                pandas.to_datetime(da.coords[dim].data[1])
+                - pandas.to_datetime(da.coords[dim].data[0])
+            ),
+            periods=da.sizes[dim],
+        )
         if not numpy.array_equal(da.coords[dim], expected_coord):
             raise Exception(f"{dim} has an irregular period")
 
@@ -200,11 +208,15 @@ class BlockedGroupby:
         if not numpy.array_equal(da[dim], expected_time):
             raise Exception(f"Expected {dim} to be regularly spaced daily data")
 
-        begin = pandas.to_datetime(da.coords[dim].data[0]) - pandas.tseries.offsets.YearBegin(n=0)
+        begin = pandas.to_datetime(
+            da.coords[dim].data[0]
+        ) - pandas.tseries.offsets.YearBegin(n=0)
         if begin != da.coords[dim][0]:
             raise Exception(f"{dim} does not start on Jan 1")
 
-        end = pandas.to_datetime(da.coords[dim].data[-1]) + pandas.tseries.offsets.YearEnd(n=0)
+        end = pandas.to_datetime(
+            da.coords[dim].data[-1]
+        ) + pandas.tseries.offsets.YearEnd(n=0)
         if end != da.coords[dim][-1]:
             raise Exception(f"{dim} does not end on Dec 31")
 
