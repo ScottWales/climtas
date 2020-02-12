@@ -25,9 +25,10 @@ import dask
 import pandas
 import xarray
 from tqdm.auto import tqdm
+import typing as T
 
 
-def find_events(da, min_duration=1):
+def find_events(da: xarray.DataArray, min_duration: int=1) -> pandas.DataFrame:
     """Find 'events' in a DataArray mask
 
     Events are defined as being active when the array value is truthy. You
@@ -97,7 +98,7 @@ def find_events(da, min_duration=1):
     return pandas.concat(records, ignore_index=True)
 
 
-def map_events(da, events, func, *args, **kwargs):
+def map_events(da: xarray.DataArray, events: pandas.DataFrame, func, *args, **kwargs) -> pandas.DataFrame:
     """Map a function against multiple events
 
     The output is the value from func evaluated at each of the events. Events
@@ -159,7 +160,7 @@ def map_events(da, events, func, *args, **kwargs):
     return events.apply(map_func, axis="columns", result_type="expand")
 
 
-def atleastn(da, n, dim="time"):
+def atleastn(da: xarray.DataArray, n: int, dim: str="time") -> xarray.DataArray:
     """
     Filter to return values with at least n contiguous points around them
 
@@ -179,7 +180,7 @@ def atleastn(da, n, dim="time"):
         along dimension dim
     """
 
-    def atleastn_helper(array, n, axis):
+    def atleastn_helper(array, axis, n, **kwargs):
         count = numpy.zeros_like(numpy.take(array, 0, axis=axis), dtype="i4")
         mask = numpy.empty_like(numpy.take(array, 0, axis=axis), dtype="bool")
         mask = True
@@ -207,7 +208,7 @@ def atleastn(da, n, dim="time"):
     if isinstance(da.data, dask.array.Array):
         reducer = atleastn_dask_helper
     else:
-        reducer = atleastn_helper
+        reducer = atleastn_helper # type: ignore
 
     r = da.rolling({dim: n * 2 - 1}, center=True, min_periods=1).reduce(reducer, n=n)
     return r

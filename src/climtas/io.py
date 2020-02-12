@@ -22,11 +22,13 @@ netcdf files written
 
 import xarray
 import dask
+import typing as T
+import pathlib
 
 from .helpers import optimized_dask_get, throttle_futures
 
 
-def to_netcdf_throttled(ds, path, complevel=4, max_tasks=None, show_progress=True):
+def to_netcdf_throttled(ds: T.Union[xarray.DataArray, xarray.Dataset], path: T.Union[str, pathlib.Path], complevel: int=4, max_tasks: int=None, show_progress: bool=True):
     """
     Save a DataArray to file by calculating each chunk separately (rather than
     submitting the whole Dask graph at once). This may be helpful when chunks
@@ -85,8 +87,8 @@ def to_netcdf_throttled(ds, path, complevel=4, max_tasks=None, show_progress=Tru
     # 'store_chunk' depends on will be automatically cleaned up when dask
     # optimises the graph
 
-    old_graph = f.__dask_graph__()
-    new_graph = {}
+    old_graph = f.__dask_graph__() # type: ignore
+    new_graph = {} # type: ignore
     store_keys = []
 
     # Pull out the 'store_chunk' operations from the graph and put them in a
@@ -107,4 +109,4 @@ def to_netcdf_throttled(ds, path, complevel=4, max_tasks=None, show_progress=Tru
     throttle_futures(old_graph, store_keys, max_tasks=None)
 
     # Finalise any remaining operations with 'new_graph'
-    optimized_dask_get(new_graph, list(f.__dask_layers__()))
+    optimized_dask_get(new_graph, list(f.__dask_layers__())) # type: ignore
