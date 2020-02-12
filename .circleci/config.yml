@@ -11,10 +11,6 @@ jobs:
             - run: |
                 mkdir -p ${TEST_OUTPUT}
                 conda build .
-            - run:
-                name: Type checking with mypy
-                command: mypy
-                when: always
             - run: 
                 name: Upload codecov
                 command: |
