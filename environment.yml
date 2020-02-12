@@ -9,3 +9,4 @@ dependencies:
     - scipy
     - tqdm
     - xarray
+    - typing_extensions
