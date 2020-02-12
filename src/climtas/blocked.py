@@ -21,6 +21,7 @@ import xarray
 import numpy
 import pandas
 import dask.array
+import scipy.stats
 import typing as T
 from typing_extensions import Protocol
 
