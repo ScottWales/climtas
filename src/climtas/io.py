@@ -100,10 +100,14 @@ def to_netcdf_throttled(
     # Pull out the 'store_chunk' operations from the graph and put them in a
     # list
     for k, v in old_graph.items():
-        if v[0] == dask.array.core.store_chunk:
-            store_keys.append(k)
-            new_graph[k] = None  # Mark the task done in new_graph
-            continue
+        try:
+            if v[0] == dask.array.core.store_chunk:
+                store_keys.append(k)
+                new_graph[k] = None  # Mark the task done in new_graph
+                continue
+        except ValueError:
+            # Found a numpy array or similar, so comparison fails
+            pass
         new_graph[k] = v
 
     if show_progress:
