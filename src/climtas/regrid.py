@@ -30,11 +30,14 @@ import tempfile
 import xarray
 
 
-def cdo_generate_weights(source_grid, target_grid,
-        method='bil',
-        extrapolate=True,
-        remap_norm='fracarea',
-        remap_area_min=0.0):
+def cdo_generate_weights(
+    source_grid,
+    target_grid,
+    method="bil",
+    extrapolate=True,
+    remap_norm="fracarea",
+    remap_area_min=0.0,
+):
     """
     Generate weights for regridding using CDO
 
@@ -64,10 +67,10 @@ def cdo_generate_weights(source_grid, target_grid,
         :obj:`xarray.Dataset` with regridding weights
     """
 
-    supported_methods = ['bic','bil','con','con2','dis','laf','nn','ycon']
+    supported_methods = ["bic", "bil", "con", "con2", "dis", "laf", "nn", "ycon"]
     if method not in supported_methods:
         raise Exception
-    if remap_norm not in ['fracarea', 'destarea']:
+    if remap_norm not in ["fracarea", "destarea"]:
         raise Exception
 
     # Make some temporary files that we'll feed to CDO
@@ -81,22 +84,25 @@ def cdo_generate_weights(source_grid, target_grid,
     # Setup environment
     env = os.environ
     if extrapolate:
-        env['REMAP_EXTRAPOLATE'] = 'on'
+        env["REMAP_EXTRAPOLATE"] = "on"
     else:
-        env['REMAP_EXTRAPOLATE'] = 'off'
+        env["REMAP_EXTRAPOLATE"] = "off"
 
-    env['CDO_REMAP_NORM'] = remap_norm
-    env['REMAP_AREA_MIN'] = '%f' % (remap_area_min)
+    env["CDO_REMAP_NORM"] = remap_norm
+    env["REMAP_AREA_MIN"] = "%f" % (remap_area_min)
 
     try:
         # Run CDO
-        subprocess.check_output([
-            "cdo",
-            "gen%s,%s" % (method, target_grid_file.name),
-            source_grid_file.name,
-            weight_file.name],
+        subprocess.check_output(
+            [
+                "cdo",
+                "gen%s,%s" % (method, target_grid_file.name),
+                source_grid_file.name,
+                weight_file.name,
+            ],
             stderr=subprocess.PIPE,
-            env=env)
+            env=env,
+        )
 
         # Grab the weights file it outputs as a xarray.Dataset
         weights = xarray.open_dataset(weight_file.name)
@@ -115,15 +121,15 @@ def cdo_generate_weights(source_grid, target_grid,
 
 
 def esmf_generate_weights(
-        source_grid,
-        target_grid,
-        method='bilinear',
-        extrap_method='nearestidavg',
-        norm_type='dstarea',
-        line_type=None,
-        pole=None,
-        ignore_unmapped=False,
-        ):
+    source_grid,
+    target_grid,
+    method="bilinear",
+    extrap_method="nearestidavg",
+    norm_type="dstarea",
+    line_type=None,
+    pole=None,
+    ignore_unmapped=False,
+):
     """Generate regridding weights with ESMF
 
     https://www.earthsystemcog.org/projects/esmf/regridding
@@ -145,57 +151,63 @@ def esmf_generate_weights(
     target_file = tempfile.NamedTemporaryFile()
     weight_file = tempfile.NamedTemporaryFile()
 
-    rwg = 'ESMF_RegridWeightGen'
+    rwg = "ESMF_RegridWeightGen"
 
     if which(rwg) is None:
-        rwg = '/apps/esmf/7.1.0r-intel/bin/binO/Linux.intel.64.openmpi.default/ESMF_RegridWeightGen'
+        rwg = "/apps/esmf/7.1.0r-intel/bin/binO/Linux.intel.64.openmpi.default/ESMF_RegridWeightGen"
 
-    if '_FillValue' not in source_grid.encoding:
-        source_grid.encoding['_FillValue'] = -999999
+    if "_FillValue" not in source_grid.encoding:
+        source_grid.encoding["_FillValue"] = -999999
 
-    if '_FillValue' not in target_grid.encoding:
-        target_grid.encoding['_FillValue'] = -999999
+    if "_FillValue" not in target_grid.encoding:
+        target_grid.encoding["_FillValue"] = -999999
 
     try:
         source_grid.to_netcdf(source_file.name)
         target_grid.to_netcdf(target_file.name)
 
-        command = [rwg,
-            '--source', source_file.name,
-            '--destination', target_file.name,
-            '--weight', weight_file.name,
-            '--method', method,
-            '--extrap_method', extrap_method,
-            '--norm_type', norm_type,
+        command = [
+            rwg,
+            "--source",
+            source_file.name,
+            "--destination",
+            target_file.name,
+            "--weight",
+            weight_file.name,
+            "--method",
+            method,
+            "--extrap_method",
+            extrap_method,
+            "--norm_type",
+            norm_type,
             #'--user_areas',
-            '--no-log',
-            '--check',
-            ]
+            "--no-log",
+            "--check",
+        ]
 
         if isinstance(source_grid, xarray.DataArray):
-            command.extend([
-                '--src_missingvalue', source_grid.name,
-                ])
+            command.extend(
+                ["--src_missingvalue", source_grid.name,]
+            )
         if isinstance(target_grid, xarray.DataArray):
-            command.extend([
-                '--dst_missingvalue', target_grid.name,
-                ])
+            command.extend(
+                ["--dst_missingvalue", target_grid.name,]
+            )
         if ignore_unmapped:
-            command.extend([
-                '--ignore_unmapped',
-                ])
+            command.extend(
+                ["--ignore_unmapped",]
+            )
         if line_type is not None:
-            command.extend([
-                '--line_type',line_type,
-                ])
+            command.extend(
+                ["--line_type", line_type,]
+            )
         if pole is not None:
-            command.extend([
-                '--pole',pole,
-                ])
+            command.extend(
+                ["--pole", pole,]
+            )
 
-        out = subprocess.check_output(args=command,
-            stderr=subprocess.PIPE)
-        print(out.decode('utf-8'))
+        out = subprocess.check_output(args=command, stderr=subprocess.PIPE)
+        print(out.decode("utf-8"))
 
         weights = xarray.open_dataset(weight_file.name)
         # Load so we can delete the temp file
@@ -203,7 +215,7 @@ def esmf_generate_weights(
 
     except subprocess.CalledProcessError as e:
         print(e)
-        print(e.output.decode('utf-8'))
+        print(e.output.decode("utf-8"))
         raise
 
     finally:
@@ -235,18 +247,16 @@ def apply_weights(source_data, weights):
     # array, multiplied by the weights matrix, then unstacked back into a 2d
     # array
 
-    if w.title.startswith('ESMF'):
+    if w.title.startswith("ESMF"):
         # ESMF style weights
         src_address = w.col - 1
         dst_address = w.row - 1
         remap_matrix = w.S
-        w_shape = (w.sizes['n_a'], w.sizes['n_b'])
+        w_shape = (w.sizes["n_a"], w.sizes["n_b"])
 
         dst_grid_shape = w.dst_grid_dims.data
-        dst_grid_center_lat = w.yc_b.data.reshape(
-            dst_grid_shape[::-1], order='C')
-        dst_grid_center_lon = w.xc_b.data.reshape(
-            dst_grid_shape[::-1], order='C')
+        dst_grid_center_lat = w.yc_b.data.reshape(dst_grid_shape[::-1], order="C")
+        dst_grid_center_lon = w.xc_b.data.reshape(dst_grid_shape[::-1], order="C")
 
         dst_mask = w.mask_b
 
@@ -257,13 +267,15 @@ def apply_weights(source_data, weights):
         src_address = w.src_address - 1
         dst_address = w.dst_address - 1
         remap_matrix = w.remap_matrix[:, 0]
-        w_shape = (w.sizes['src_grid_size'], w.sizes['dst_grid_size'])
+        w_shape = (w.sizes["src_grid_size"], w.sizes["dst_grid_size"])
 
         dst_grid_shape = w.dst_grid_dims.data
         dst_grid_center_lat = w.dst_grid_center_lat.data.reshape(
-            dst_grid_shape[::-1], order='C')
+            dst_grid_shape[::-1], order="C"
+        )
         dst_grid_center_lon = w.dst_grid_center_lon.data.reshape(
-            dst_grid_shape[::-1], order='C')
+            dst_grid_shape[::-1], order="C"
+        )
 
         dst_mask = w.dst_grid_imask
 
@@ -271,25 +283,27 @@ def apply_weights(source_data, weights):
 
     # Check lat/lon are the last axes
     source_lat, source_lon = identify_lat_lon(source_data)
-    if not (source_lat.name in source_data.dims[-2:] and
-            source_lon.name in source_data.dims[-2:]):
-        raise Exception("Last two dimensions should be spatial coordinates,"
-                        f" got {source_data.dims[-2:]}")
+    if not (
+        source_lat.name in source_data.dims[-2:]
+        and source_lon.name in source_data.dims[-2:]
+    ):
+        raise Exception(
+            "Last two dimensions should be spatial coordinates,"
+            f" got {source_data.dims[-2:]}"
+        )
 
     kept_shape = list(source_data.shape[0:-2])
     kept_dims = list(source_data.dims[0:-2])
 
     # Create a sparse array from the weights
-    sparse_weights = sparse.COO([src_address.data, dst_address.data],
-                               remap_matrix.data,
-                               shape=w_shape,
-                               )
+    sparse_weights = sparse.COO(
+        [src_address.data, dst_address.data], remap_matrix.data, shape=w_shape,
+    )
 
     # Remove the spatial axes, apply the weights, add the spatial axes back
     source_array = source_data.data
     if isinstance(source_array, dask.array.Array):
-        source_array = dask.array.reshape(source_array,
-                kept_shape +  [-1])
+        source_array = dask.array.reshape(source_array, kept_shape + [-1])
     else:
         source_array = numpy.reshape(source_array, kept_shape + [-1])
 
@@ -299,39 +313,47 @@ def apply_weights(source_data, weights):
     source_array = dask.array.ma.filled(source_array)
 
     target_dask = dask.array.tensordot(source_array, sparse_weights, axes=1)
-    target_dask = dask.array.reshape(target_dask,
-            kept_shape + [dst_grid_shape[1], dst_grid_shape[0]])
+    target_dask = dask.array.reshape(
+        target_dask, kept_shape + [dst_grid_shape[1], dst_grid_shape[0]]
+    )
 
     # Create a new DataArray for the output
-    target_da = xarray.DataArray(target_dask,
-                                 dims=kept_dims + ['i', 'j'],
-                                 coords={k:v for k,v in source_data.coords.items()
-                                     if set(v.dims).issubset(kept_dims)},
-                                 name=source_data.name)
-    target_da.coords['lat'] = xarray.DataArray(dst_grid_center_lat, dims=['i','j'])
-    target_da.coords['lon'] = xarray.DataArray(dst_grid_center_lon, dims=['i','j'])
+    target_da = xarray.DataArray(
+        target_dask,
+        dims=kept_dims + ["i", "j"],
+        coords={
+            k: v
+            for k, v in source_data.coords.items()
+            if set(v.dims).issubset(kept_dims)
+        },
+        name=source_data.name,
+    )
+    target_da.coords["lat"] = xarray.DataArray(dst_grid_center_lat, dims=["i", "j"])
+    target_da.coords["lon"] = xarray.DataArray(dst_grid_center_lon, dims=["i", "j"])
 
     # Mask
-    target_da = target_da.where(dst_mask.data.reshape([dst_grid_shape[1], dst_grid_shape[0]]) == 1)
+    target_da = target_da.where(
+        dst_mask.data.reshape([dst_grid_shape[1], dst_grid_shape[0]]) == 1
+    )
 
     # Clean up coordinates
-    target_da.coords['lat'] = remove_degenerate_axes(target_da.lat)
-    target_da.coords['lon'] = remove_degenerate_axes(target_da.lon)
+    target_da.coords["lat"] = remove_degenerate_axes(target_da.lat)
+    target_da.coords["lon"] = remove_degenerate_axes(target_da.lon)
 
     # Convert to degrees if needed
-    target_da.coords['lat'] = target_da.lat * axis_scale
-    target_da.coords['lon'] = target_da.lon * axis_scale
+    target_da.coords["lat"] = target_da.lat * axis_scale
+    target_da.coords["lon"] = target_da.lon * axis_scale
 
     # Regular grids should use 'lat', 'lon' as dimension names, curved grids
     # use 'i', 'j'
-    if target_da.coords['lat'].ndim == 1 and target_da.coords['lon'].ndim == 1:
-        target_da = target_da.rename({'i': 'lat', 'j': 'lon'})
+    if target_da.coords["lat"].ndim == 1 and target_da.coords["lon"].ndim == 1:
+        target_da = target_da.rename({"i": "lat", "j": "lon"})
 
     # Add metadata to the coordinates
-    target_da.coords['lat'].attrs['units'] = 'degrees_north'
-    target_da.coords['lat'].attrs['standard_name'] = 'latitude'
-    target_da.coords['lon'].attrs['units'] = 'degrees_east'
-    target_da.coords['lon'].attrs['standard_name'] = 'longitude'
+    target_da.coords["lat"].attrs["units"] = "degrees_north"
+    target_da.coords["lat"].attrs["standard_name"] = "latitude"
+    target_da.coords["lon"].attrs["units"] = "degrees_east"
+    target_da.coords["lon"].attrs["standard_name"] = "longitude"
 
     return target_da
 
@@ -358,7 +380,8 @@ class Regridder(object):
 
         if (source_grid is None or target_grid is None) and weights is None:
             raise Exception(
-                "Either weights or source_grid/target_grid must be supplied")
+                "Either weights or source_grid/target_grid must be supplied"
+            )
 
         # Is there already a weights file?
         if weights is not None:
@@ -403,7 +426,6 @@ def regrid(source_data, target_grid=None, weights=None):
         :class:`xarray.DataArray` with a regridded version of the source variable
     """
 
-    regridder = Regridder(
-        source_data, target_grid=target_grid, weights=weights)
+    regridder = Regridder(source_data, target_grid=target_grid, weights=weights)
 
     return regridder.regrid(source_data)

@@ -57,14 +57,18 @@ def identify_lat_lon(dataarray):
     lon = None
 
     for c in dataarray.coords.values():
-        if (c.attrs.get('standard_name', '') == 'latitude'
-                or Units(c.attrs.get('units', '')).islatitude
-                or c.attrs.get('axis', '') == 'Y'):
+        if (
+            c.attrs.get("standard_name", "") == "latitude"
+            or Units(c.attrs.get("units", "")).islatitude
+            or c.attrs.get("axis", "") == "Y"
+        ):
             lat = c
 
-        if (c.attrs.get('standard_name', '') == 'longitude'
-                or Units(c.attrs.get('units', '')).islongitude
-                or c.attrs.get('axis', '') == 'X'):
+        if (
+            c.attrs.get("standard_name", "") == "longitude"
+            or Units(c.attrs.get("units", "")).islongitude
+            or c.attrs.get("axis", "") == "X"
+        ):
             lon = c
 
     if lat is None or lon is None:
@@ -88,10 +92,12 @@ def identify_time(dataarray):
     """
 
     for c in dataarray.coords.values():
-        if (c.attrs.get('standard_name', '') == 'time'
-                or Units(c.attrs.get('units', '')).isreftime
-                or Units(c.encoding.get('units', '')).isreftime
-                or c.attrs.get('axis', '') == 'T'):
+        if (
+            c.attrs.get("standard_name", "") == "time"
+            or Units(c.attrs.get("units", "")).isreftime
+            or Units(c.encoding.get("units", "")).isreftime
+            or c.attrs.get("axis", "") == "T"
+        ):
             return c
 
     raise Exception("No time axis found")
