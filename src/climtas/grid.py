@@ -45,7 +45,7 @@ def identify_grid(dataset):
         return dataset
 
     try:
-        if dataset.attrs['conventions'] == 'SCRIP':
+        if dataset.attrs["conventions"] == "SCRIP":
             return ScripGrid(dataset)
     except KeyError:
         pass
@@ -120,21 +120,27 @@ class LonLatGrid(Grid):
             raise Exception("Lons and Lats must be 1D")
 
     def to_cdo_grid(self, outfile):
-        outfile.write('gridtype = lonlat\n'.encode())
+        outfile.write("gridtype = lonlat\n".encode())
 
-        outfile.write(('xsize = %d\n' % len(self.lons)).encode())
-        outfile.write(('xvals = %s\n' % (','.join(['%f' % x for x in self.lons]))).encode())
+        outfile.write(("xsize = %d\n" % len(self.lons)).encode())
+        outfile.write(
+            ("xvals = %s\n" % (",".join(["%f" % x for x in self.lons]))).encode()
+        )
 
-        outfile.write(('ysize = %d\n' % len(self.lats)).encode())
-        outfile.write(('yvals = %s\n' % (','.join(['%f' % x for x in self.lats]))).encode())
+        outfile.write(("ysize = %d\n" % len(self.lats)).encode())
+        outfile.write(
+            ("yvals = %s\n" % (",".join(["%f" % x for x in self.lats]))).encode()
+        )
 
         outfile.flush()
 
     def to_netcdf(self, outfile):
-        ds = xarray.DataArray(data=numpy.zeros((len(self.lats), len(self.lons))),
-                              coords=[('lat', self.lats), ('lon', self.lons)])
-        ds.lat.attrs['units'] = 'degrees_north'
-        ds.lon.attrs['units'] = 'degrees_east'
+        ds = xarray.DataArray(
+            data=numpy.zeros((len(self.lats), len(self.lons))),
+            coords=[("lat", self.lats), ("lon", self.lons)],
+        )
+        ds.lat.attrs["units"] = "degrees_north"
+        ds.lon.attrs["units"] = "degrees_east"
         ds.to_netcdf(outfile)
 
     def to_scrip(self):
@@ -147,8 +153,8 @@ class LonLatGrid(Grid):
         bot = (lat.shift(lat=1) + lat) / 2.0
         bot[0] = -90
 
-        left = ((lon - (lon - lon.roll(lon=1).values) % 360) / 2.0)
-        right = (lon + ((lon.roll(lon=-1).values - lon) % 360) / 2.0)
+        left = (lon - (lon - lon.roll(lon=1).values) % 360) / 2.0
+        right = lon + ((lon.roll(lon=-1).values - lon) % 360) / 2.0
 
         center_lon, center_lat = numpy.meshgrid(lon, lat)
 
@@ -157,23 +163,37 @@ class LonLatGrid(Grid):
         corner_lon2, corner_lat2 = numpy.meshgrid(right, top)
         corner_lon3, corner_lat3 = numpy.meshgrid(left, top)
 
-        corner_lat = numpy.array([x.reshape(-1) for x in [corner_lat0, corner_lat1, corner_lat2, corner_lat3]])
-        corner_lon = numpy.array([x.reshape(-1) for x in [corner_lon0, corner_lon1, corner_lon2, corner_lon3]])
+        corner_lat = numpy.array(
+            [
+                x.reshape(-1)
+                for x in [corner_lat0, corner_lat1, corner_lat2, corner_lat3]
+            ]
+        )
+        corner_lon = numpy.array(
+            [
+                x.reshape(-1)
+                for x in [corner_lon0, corner_lon1, corner_lon2, corner_lon3]
+            ]
+        )
 
         scrip = xarray.Dataset(
             coords={
-                'grid_dims': (['grid_rank'], numpy.array([lon.size, lat.size],dtype='i4')),
-                'grid_center_lat': (['grid_size'], center_lat.reshape(-1)),
-                'grid_center_lon': (['grid_size'], center_lon.reshape(-1)),
-                'grid_imask': (['grid_size'], self.mask.reshape(-1).astype('i4')),
-                'grid_corner_lat': (['grid_size', 'grid_corners'], corner_lat.T),
-                'grid_corner_lon': (['grid_size', 'grid_corners'], corner_lon.T),
-            })
+                "grid_dims": (
+                    ["grid_rank"],
+                    numpy.array([lon.size, lat.size], dtype="i4"),
+                ),
+                "grid_center_lat": (["grid_size"], center_lat.reshape(-1)),
+                "grid_center_lon": (["grid_size"], center_lon.reshape(-1)),
+                "grid_imask": (["grid_size"], self.mask.reshape(-1).astype("i4")),
+                "grid_corner_lat": (["grid_size", "grid_corners"], corner_lat.T),
+                "grid_corner_lon": (["grid_size", "grid_corners"], corner_lon.T),
+            }
+        )
 
-        scrip.grid_center_lat.attrs['units'] = 'degrees'
-        scrip.grid_center_lon.attrs['units'] = 'degrees'
-        scrip.grid_corner_lat.attrs['units'] = 'degrees'
-        scrip.grid_corner_lon.attrs['units'] = 'degrees'
+        scrip.grid_center_lat.attrs["units"] = "degrees"
+        scrip.grid_center_lon.attrs["units"] = "degrees"
+        scrip.grid_corner_lat.attrs["units"] = "degrees"
+        scrip.grid_corner_lon.attrs["units"] = "degrees"
 
         return scrip
 
@@ -188,16 +208,22 @@ class UMGrid(LonLatGrid):
                 mask_field = f
                 break
 
-        mask = xarray.DataArray(mask_field.get_data(), dims=['lat', 'lon'], name=os.path.basename(mask_path))
-        mask.coords['lon'] = mask_field.bzx + (1+numpy.arange(mask.shape[1])) * mask_field.bdx
-        mask.coords['lat'] = mask_field.bzy + (1+numpy.arange(mask.shape[0])) * mask_field.bdy
+        mask = xarray.DataArray(
+            mask_field.get_data(), dims=["lat", "lon"], name=os.path.basename(mask_path)
+        )
+        mask.coords["lon"] = (
+            mask_field.bzx + (1 + numpy.arange(mask.shape[1])) * mask_field.bdx
+        )
+        mask.coords["lat"] = (
+            mask_field.bzy + (1 + numpy.arange(mask.shape[0])) * mask_field.bdy
+        )
 
         mask = mask.where(mask == 0)
 
-        mask.lon.attrs['standard_name'] = 'longitude'
-        mask.lat.attrs['standard_name'] = 'latitude'
-        mask.lon.attrs['units'] = 'degrees_east'
-        mask.lat.attrs['units'] = 'degrees_north'
+        mask.lon.attrs["standard_name"] = "longitude"
+        mask.lat.attrs["standard_name"] = "latitude"
+        mask.lon.attrs["units"] = "degrees_east"
+        mask.lat.attrs["units"] = "degrees_north"
 
         return mask
 

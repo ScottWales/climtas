@@ -10,7 +10,7 @@ jobs:
             - run: conda install conda-build conda-verify codecov
             - run: |
                 mkdir -p ${TEST_OUTPUT}
-                conda build .
+                conda build . -c conda-forge -c coecms
             - run: 
                 name: Upload codecov
                 command: |
