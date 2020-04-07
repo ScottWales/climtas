@@ -2,7 +2,7 @@
 
 package:
     name: climtas
-    version: {{ data.get('version') }}
+    version: 0.2.1 # {{ data.get('version') }}
 
 source:
     path: .
@@ -11,7 +11,7 @@ source:
 build:
     script: "{{ PYTHON }} -m pip install . --no-deps"
     noarch: python
-    number: {{ GIT_DESCRIBE_NUMBER }}
+    number: 1 # {{ GIT_DESCRIBE_NUMBER }}
 
 
 requirements:
@@ -19,7 +19,7 @@ requirements:
         - python
         - pip
     run:
-        - python >=3.6
+        - python
         - dask
         - netcdf4
         - pandas
@@ -27,6 +27,10 @@ requirements:
         - tqdm
         - xarray
         - typing_extensions
+        - iris
+        - cfunits
+        - mule
+        - sparse
 
 test:
     imports:
@@ -34,6 +38,8 @@ test:
     requires:
         - pytest
         - coverage
+        - cdo
+        - esmf
     files:
         - setup.cfg
         - test
