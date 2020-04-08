@@ -186,25 +186,15 @@ def esmf_generate_weights(
         ]
 
         if isinstance(source_grid, xarray.DataArray):
-            command.extend(
-                ["--src_missingvalue", source_grid.name,]
-            )
+            command.extend(["--src_missingvalue", source_grid.name])
         if isinstance(target_grid, xarray.DataArray):
-            command.extend(
-                ["--dst_missingvalue", target_grid.name,]
-            )
+            command.extend(["--dst_missingvalue", target_grid.name])
         if ignore_unmapped:
-            command.extend(
-                ["--ignore_unmapped",]
-            )
+            command.extend(["--ignore_unmapped"])
         if line_type is not None:
-            command.extend(
-                ["--line_type", line_type,]
-            )
+            command.extend(["--line_type", line_type])
         if pole is not None:
-            command.extend(
-                ["--pole", pole,]
-            )
+            command.extend(["--pole", pole])
 
         out = subprocess.check_output(args=command, stderr=subprocess.PIPE)
         print(out.decode("utf-8"))
@@ -297,7 +287,7 @@ def apply_weights(source_data, weights):
 
     # Create a sparse array from the weights
     sparse_weights = sparse.COO(
-        [src_address.data, dst_address.data], remap_matrix.data, shape=w_shape,
+        [src_address.data, dst_address.data], remap_matrix.data, shape=w_shape
     )
 
     # Remove the spatial axes, apply the weights, add the spatial axes back
@@ -331,10 +321,9 @@ def apply_weights(source_data, weights):
     target_da.coords["lat"] = xarray.DataArray(dst_grid_center_lat, dims=["i", "j"])
     target_da.coords["lon"] = xarray.DataArray(dst_grid_center_lon, dims=["i", "j"])
 
-    # Mask
-    target_da = target_da.where(
-        dst_mask.data.reshape([dst_grid_shape[1], dst_grid_shape[0]]) == 1
-    )
+    # Mask out points that weren't mapped
+    mapping = sparse_weights.sum(axis=0).reshape([dst_grid_shape[1], dst_grid_shape[0]])
+    target_da = target_da.where(mapping.todense() != 0.0)
 
     # Clean up coordinates
     target_da.coords["lat"] = remove_degenerate_axes(target_da.lat)
@@ -344,8 +333,7 @@ def apply_weights(source_data, weights):
     target_da.coords["lat"] = target_da.lat * axis_scale
     target_da.coords["lon"] = target_da.lon * axis_scale
 
-    # Regular grids should use 'lat', 'lon' as dimension names, curved grids
-    # use 'i', 'j'
+    # If a regular grid drop the 'i' and 'j' dimensions
     if target_da.coords["lat"].ndim == 1 and target_da.coords["lon"].ndim == 1:
         target_da = target_da.rename({"i": "lat", "j": "lon"})
 
@@ -354,6 +342,9 @@ def apply_weights(source_data, weights):
     target_da.coords["lat"].attrs["standard_name"] = "latitude"
     target_da.coords["lon"].attrs["units"] = "degrees_east"
     target_da.coords["lon"].attrs["standard_name"] = "longitude"
+
+    # Now rename to the original coordinate names
+    target_da = target_da.rename({"lat": source_lat.name, "lon": source_lon.name})
 
     return target_da
 
