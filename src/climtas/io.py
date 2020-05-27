@@ -28,6 +28,7 @@ import pathlib
 
 from .helpers import optimized_dask_get, throttle_futures
 
+
 def _ds_encoding(ds, complevel):
     # Setup compression and chunking
     encoding = {}
@@ -39,7 +40,6 @@ def _ds_encoding(ds, complevel):
             "chunksizes": getattr(v.data, "chunksize", None),
         }
     return encoding
-
 
 
 def to_netcdf_throttled(
@@ -75,7 +75,6 @@ def to_netcdf_throttled(
             workers)
         show_progress (:class:`bool`): Show a progress bar with estimated completion time
     """
-
 
     if isinstance(ds, xarray.DataArray):
         ds = ds.to_dataset()
@@ -130,10 +129,11 @@ def to_netcdf_throttled(
 
 
 def to_netcdf_series(
-        ds: T.Union[xarray.DataArray, xarray.Dataset],
-        path: T.Union[str, pathlib.Path],
-        groupby: str,
-        complevel: int = 4):
+    ds: T.Union[xarray.DataArray, xarray.Dataset],
+    path: T.Union[str, pathlib.Path],
+    groupby: str,
+    complevel: int = 4,
+):
     """
     Split a dataset into multiple parts, and save each part into its own file
 
@@ -160,7 +160,7 @@ def to_netcdf_series(
     if isinstance(ds, xarray.DataArray):
         ds = ds.to_dataset()
 
-    dim = groupby.split('.')[0]
+    dim = groupby.split(".")[0]
 
     encoding = _ds_encoding(ds, complevel)
 
@@ -168,5 +168,5 @@ def to_netcdf_series(
         start = pandas.Timestamp(part[dim].values[0])
         end = pandas.Timestamp(part[dim].values[-1])
 
-        fpath = str(path).format(start = start, end=end, group=key)
+        fpath = str(path).format(start=start, end=end, group=key)
         part.to_netcdf(fpath, encoding=encoding)
