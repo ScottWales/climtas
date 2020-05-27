@@ -13,8 +13,8 @@ climtas
    :target: https://climtas.readthedocs.io/en/latest/
    :alt: Read the Docs (latest)
 
-.. image:: https://img.shields.io/conda/v/ScottWales/climtas
-   :target: https://anaconda.org/ScottWales/climtas
+.. image:: https://img.shields.io/conda/v/coecms/climtas
+   :target: https://anaconda.org/coecms/climtas
    :alt: Conda
 
 Functions for working with large (> 10 GB) datasets using Xarray and Dask,
