@@ -39,7 +39,8 @@ test:
         - pytest
         - coverage
         - cdo
-        - esmf=*=nompi*
+        - esmf
+        - hdf5=1.10.5 # Missing CDO dependency
     files:
         - setup.cfg
         - test
