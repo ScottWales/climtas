@@ -139,9 +139,9 @@ def to_netcdf_series(
 
     path should be a :meth:`str.format()`-compatible string. It is formatted
     with three arguments: `start` and `end`, which are
-    :obj:`pandas.Timestamp`s, and `group` which is the name of the current
+    :obj:`pandas.Timestamp`, and `group` which is the name of the current
     group being output (e.g. the year when using `groupby='time.year'`). These
-    can be used to name the file, e.g.:
+    can be used to name the file, e.g.::
 
         path_a = 'data_{group}.nc'
         path_b = 'data_{start.month}_{end.month}.nc'
