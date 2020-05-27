@@ -39,7 +39,7 @@ test:
         - pytest
         - coverage
         - cdo
-        - esmf
+        - esmf=*=nompi*
     files:
         - setup.cfg
         - test
