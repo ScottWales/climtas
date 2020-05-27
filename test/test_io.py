@@ -17,6 +17,8 @@
 import xarray
 import numpy
 import dask
+import pandas
+
 from climtas import io
 
 
@@ -53,3 +55,19 @@ def test_to_netcdf_throttled_serial(tmpdir):
     path = tmpdir / "dask.nc"
     data = dask.array.zeros([10, 10, 10])
     helper(path, data)
+
+
+def test_to_netcdf_series(tmpdir):
+    path = tmpdir / "data_{start.year}.nc"
+    data = xarray.DataArray(numpy.zeros([20]), coords=[('time', pandas.date_range('20010101', freq='MS', periods=20))], name='test')
+
+    io.to_netcdf_series(data, path, groupby="time.year")
+
+    assert (tmpdir / "data_2001.nc").exists()
+    assert (tmpdir / "data_2002.nc").exists()
+
+    data.coords['group'] = ('time', [0,0,0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,1,1,1])
+    path = tmpdir / "data_{group}.nc"
+    io.to_netcdf_series(data, path, groupby="group")
+    assert (tmpdir / "data_0.nc").exists()
+    assert (tmpdir / "data_1.nc").exists()
