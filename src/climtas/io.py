@@ -22,10 +22,24 @@ netcdf files written
 
 import xarray
 import dask
+import pandas
 import typing as T
 import pathlib
 
 from .helpers import optimized_dask_get, throttle_futures
+
+
+def _ds_encoding(ds, complevel):
+    # Setup compression and chunking
+    encoding = {}
+    for k, v in ds.data_vars.items():
+        encoding[k] = {
+            "zlib": True,
+            "shuffle": True,
+            "complevel": complevel,
+            "chunksizes": getattr(v.data, "chunksize", None),
+        }
+    return encoding
 
 
 def to_netcdf_throttled(
@@ -62,19 +76,11 @@ def to_netcdf_throttled(
         show_progress (:class:`bool`): Show a progress bar with estimated completion time
     """
 
-    encoding = {}
-
     if isinstance(ds, xarray.DataArray):
         ds = ds.to_dataset()
 
     # Setup compression and chunking
-    for k, v in ds.data_vars.items():
-        encoding[k] = {
-            "zlib": True,
-            "shuffle": True,
-            "complevel": complevel,
-            "chunksizes": getattr(v.data, "chunksize", None),
-        }
+    encoding = _ds_encoding(ds, complevel)
 
     # Prepare storing the data to netcdf, but don't evaluate
     f = ds.to_netcdf(str(path), encoding=encoding, compute=False)
@@ -120,3 +126,47 @@ def to_netcdf_throttled(
 
     # Finalise any remaining operations with 'new_graph'
     optimized_dask_get(new_graph, list(f.__dask_layers__()))  # type: ignore
+
+
+def to_netcdf_series(
+    ds: T.Union[xarray.DataArray, xarray.Dataset],
+    path: T.Union[str, pathlib.Path],
+    groupby: str,
+    complevel: int = 4,
+):
+    """
+    Split a dataset into multiple parts, and save each part into its own file
+
+    path should be a :meth:`str.format()`-compatible string. It is formatted
+    with three arguments: `start` and `end`, which are
+    :obj:`pandas.Timestamp`s, and `group` which is the name of the current
+    group being output (e.g. the year when using `groupby='time.year'`). These
+    can be used to name the file, e.g.:
+
+        path_a = 'data_{group}.nc'
+        path_b = 'data_{start.month}_{end.month}.nc'
+        path_c = 'data_{start.year:04d}{start.month:02d}{start.day:02d}.nc'
+
+    Note that `start` and `end` are the first and last timestamps of the
+    group's data, which may not match the boundary start and end dates
+
+    Args:
+        da (:class:`xarray.Dataset` or :class:`xarray.DataArray`): Data to save
+        path (:class:`str` or :class:`pathlib.Path`): Path template to save to
+        groupby (:class:`str`): Grouping, as used by :meth:`xarray.DataArray.groupby`
+        complevel (:class:`int`): NetCDF compression level
+    """
+
+    if isinstance(ds, xarray.DataArray):
+        ds = ds.to_dataset()
+
+    dim = groupby.split(".")[0]
+
+    encoding = _ds_encoding(ds, complevel)
+
+    for key, part in ds.groupby(groupby):
+        start = pandas.Timestamp(part[dim].values[0])
+        end = pandas.Timestamp(part[dim].values[-1])
+
+        fpath = str(path).format(start=start, end=end, group=key)
+        part.to_netcdf(fpath, encoding=encoding)

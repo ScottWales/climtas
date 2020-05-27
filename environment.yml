@@ -1,6 +1,7 @@
 name: climtas
 channels:
     - conda-forge
+    - coecms
 dependencies:
     - python >= 3.6
     - dask
@@ -10,3 +11,8 @@ dependencies:
     - tqdm
     - xarray
     - typing_extensions
+    - cfunits
+    - iris
+    - mule
+    - sparse
+    - black
