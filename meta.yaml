@@ -40,7 +40,7 @@ test:
         - coverage
         - cdo
         - esmf
-        - hdf5=1.10.5 # Missing CDO dependency
+        - hdf5
     files:
         - setup.cfg
         - test
