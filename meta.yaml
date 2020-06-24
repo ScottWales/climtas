@@ -2,7 +2,7 @@
 
 package:
     name: climtas
-    version: 0.2.1 # {{ data.get('version') }}
+    version: {{ data.get('version') }}
 
 source:
     path: .
@@ -11,7 +11,7 @@ source:
 build:
     script: "{{ PYTHON }} -m pip install . --no-deps"
     noarch: python
-    number: 1 # {{ GIT_DESCRIBE_NUMBER }}
+    number: {{ GIT_DESCRIBE_NUMBER }}
 
 
 requirements:
