@@ -529,7 +529,9 @@ class BlockedGroupby:
             raise TypeError(f"Other operand must be a DataArray (got {type(other)})")
 
         if self.grouping not in other.dims:
-            raise KeyError(f"Grouping {self.grouping} not present in other DataArray dimensions ({other.dims})")
+            raise KeyError(
+                f"Grouping {self.grouping} not present in other DataArray dimensions ({other.dims})"
+            )
 
         axis = self.da.get_axis_num(self.dim)
         expand = dask.array.full_like(
