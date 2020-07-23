@@ -258,8 +258,8 @@ class BlockedGroupby:
             elif self.grouping == "monthday":
                 return dask.array.concatenate(
                     [
-                        source.take(axis, slice(0, 31 + 28)),
-                        source.take(axis, slice(31 + 28 + 1, None)),
+                        dask.array.take(source, slice(0, 31 + 28), axis=axis),
+                        dask.array.take(source, slice(31 + 28 + 1, None), axis=axis),
                     ],
                     axis=axis,
                 )
@@ -526,10 +526,10 @@ class BlockedGroupby:
         """Generic binary operation (add, subtract etc.)
         """
         if not isinstance(other, xarray.DataArray):
-            raise Exception()
+            raise TypeError(f"Other operand must be a DataArray (got {type(other)})")
 
         if self.grouping not in other.dims:
-            raise Exception()
+            raise KeyError(f"Grouping {self.grouping} not present in other DataArray dimensions ({other.dims})")
 
         axis = self.da.get_axis_num(self.dim)
         expand = dask.array.full_like(
