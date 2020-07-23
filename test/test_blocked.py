@@ -115,7 +115,17 @@ def test_groupby_climatology(sample):
     climatology_xr = sample.groupby("time.dayofyear").mean()
     delta_xr = sample.groupby("time.dayofyear") - climatology_xr
 
+    # Climtas matches Xarray
     numpy.testing.assert_array_equal(delta_xr, delta)
+
+    climatology_md = blocked_groupby(sample, time="monthday").mean()
+    delta_md = blocked_groupby(sample, time="monthday") - climatology_md
+
+    # January anomalies match
+    numpy.testing.assert_array_equal(delta_md[:31, ...], delta[:31, ...])
+
+    assert type(delta.data) == dask.array.Array
+    assert type(delta_md.data) == dask.array.Array
 
 
 def test_groupby_percentile(sample):
