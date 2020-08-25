@@ -13,7 +13,22 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-from __future__ import print_function
+"""Dask-aware regridding
+
+To apply a regridding you will need a set of weights mapping from the source
+grid to the target grid.
+
+Regridding weights can be generated online using ESMF_RegridWeightGen
+(:func:`esmf_generate_weights`) or CDO (:func:`cdo_generate_weights`), or
+offline by calling these programs externally (this is recommended especially
+for large grids, using ESMF_REgridWeightGen in MPI mode).
+
+Once calculated :func:`regrid` will apply these weights using a Dask sparse
+matrix multiply, maintaining chunking in dimensions other than lat and lon.
+
+:class:`Regrid` can create basic weights and store them to apply the weights to
+multiple datasets.
+"""
 
 from .dimension import remove_degenerate_axes, identify_lat_lon
 from .grid import *
@@ -152,9 +167,6 @@ def esmf_generate_weights(
     weight_file = tempfile.NamedTemporaryFile()
 
     rwg = "ESMF_RegridWeightGen"
-
-    if which(rwg) is None:
-        rwg = "/apps/esmf/7.1.0r-intel/bin/binO/Linux.intel.64.openmpi.default/ESMF_RegridWeightGen"
 
     if "_FillValue" not in source_grid.encoding:
         source_grid.encoding["_FillValue"] = -999999

@@ -17,3 +17,8 @@ climtas.blocked
 ---------------
 .. automodule:: climtas.blocked
    :members:
+
+climtas.regrid
+--------------
+.. automodule:: climtas.regrid
+   :members:
