@@ -5,5 +5,7 @@ del get_versions
 
 from . import event
 from . import io
+from . import regrid
+from . import blocked
 
 from .blocked import blocked_resample, blocked_groupby
