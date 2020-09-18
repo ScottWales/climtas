@@ -214,3 +214,34 @@ def atleastn(da: xarray.DataArray, n: int, dim: str = "time") -> xarray.DataArra
 
     r = da.rolling({dim: n * 2 - 1}, center=True, min_periods=1).reduce(reducer, n=n)
     return r
+
+
+def event_coords(da: xarray.DataArray, events: pandas.DataFrame) -> pandas.DataFrame:
+    """
+    Converts the index values returned by :func:`find_events` to coordinate values
+
+    >>> da = xarray.DataArray([0,1,1,1,0,1,1], coords=[('time', pandas.date_range('20010101', periods=7, freq='D'))])
+    >>> events = find_events(da > 0)
+    >>> event_coords(da, events)
+            time event_duration
+    0 2001-01-02         2 days
+    1 2001-01-06         1 days
+
+
+    Args:
+        da (:class:`xarray.DataArray`): Source data values
+        events (:class:`pandas.DataFrame`): Event start & durations, e.g. from
+            :func:`find_events`
+
+    Returns:
+        :class:`pandas.DataFrame` with the same columns as 'events', but with
+        index values converted to coordinates
+    """
+    coords = {}
+    for d in da.dims:
+        coords[d] = da[d].values[events[d].values]
+
+    end = da["time"].values[events["time"].values + events["event_duration"].values - 1]
+    coords["event_duration"] = end - coords["time"]
+
+    return pandas.DataFrame(coords, index=events.index)
