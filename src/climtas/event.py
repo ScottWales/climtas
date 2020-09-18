@@ -240,7 +240,7 @@ def event_coords(da: xarray.DataArray, events: pandas.DataFrame) -> pandas.DataF
     for d in da.dims:
         coords[d] = da[d].values[events[d].values]
 
-    end = da['time'].values[events['time'].values + events['event_duration'].values-1]
-    coords['event_duration'] = end - coords['time']
+    end = da["time"].values[events["time"].values + events["event_duration"].values - 1]
+    coords["event_duration"] = end - coords["time"]
 
     return pandas.DataFrame(coords, index=events.index)
