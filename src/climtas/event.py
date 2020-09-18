@@ -220,7 +220,7 @@ def event_coords(da: xarray.DataArray, events: pandas.DataFrame) -> pandas.DataF
     """
     Converts the index values returned by :func:`find_events` to coordinate values
 
-    >>> da = xarray.DataArray([0,1,1,1,0,1,1], coords=('time', pandas.date_range('20010101', periods=7, freq='D'))
+    >>> da = xarray.DataArray([0,1,1,1,0,1,1], coords=('time', pandas.date_range('20010101', periods=7, freq='D')))
     >>> events = find_events(da > 0)
     >>> event_coords(da, events)
        time  event_duration
