@@ -542,7 +542,7 @@ class BlockedGroupby:
         # Apply the operation to each year
         for y, d in self.da.groupby(f"{self.dim}.year"):
             grouped = self._group_year(d, axis, expand)
-            result = getattr(grouped, op)(other)
+            result = getattr(grouped, op)(other.data)
             blocks.append(self._ungroup_year(d, axis, result))
 
         # Combine back into a timeseries
