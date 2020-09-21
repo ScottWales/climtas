@@ -298,9 +298,11 @@ def apply_weights(source_data, weights):
     kept_dims = list(source_data.dims[0:-2])
 
     # Create a sparse array from the weights
-    sparse_weights = sparse.COO(
+    sparse_weights_delayed = dask.delayed(sparse.COO)(
         [src_address.data, dst_address.data], remap_matrix.data, shape=w_shape
     )
+    sparse_weights = dask.array.from_delayed(sparse_weights_delayed,
+            shape=w_shape, dtype=remap_matrix.dtype)
 
     # Remove the spatial axes, apply the weights, add the spatial axes back
     source_array = source_data.data
@@ -315,6 +317,10 @@ def apply_weights(source_data, weights):
     source_array = dask.array.ma.filled(source_array)
 
     target_dask = dask.array.tensordot(source_array, sparse_weights, axes=1)
+
+    bmask = numpy.broadcast_to(dst_mask.data.reshape([1 for d in kept_shape] + [-1]), target_dask.shape)
+
+    target_dask = dask.array.where(bmask != 0.0, target_dask, numpy.nan)
     target_dask = dask.array.reshape(
         target_dask, kept_shape + [dst_grid_shape[1], dst_grid_shape[0]]
     )
@@ -332,10 +338,6 @@ def apply_weights(source_data, weights):
     )
     target_da.coords["lat"] = xarray.DataArray(dst_grid_center_lat, dims=["i", "j"])
     target_da.coords["lon"] = xarray.DataArray(dst_grid_center_lon, dims=["i", "j"])
-
-    # Mask out points that weren't mapped
-    mapping = sparse_weights.sum(axis=0).reshape([dst_grid_shape[1], dst_grid_shape[0]])
-    target_da = target_da.where(mapping.todense() != 0.0)
 
     # Clean up coordinates
     target_da.coords["lat"] = remove_degenerate_axes(target_da.lat)
