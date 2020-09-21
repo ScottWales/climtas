@@ -256,9 +256,9 @@ def apply_weights(source_data, weights):
         remap_matrix = w.S
         w_shape = (w.sizes["n_a"], w.sizes["n_b"])
 
-        dst_grid_shape = w.dst_grid_dims.data
-        dst_grid_center_lat = w.yc_b.data.reshape(dst_grid_shape[::-1], order="C")
-        dst_grid_center_lon = w.xc_b.data.reshape(dst_grid_shape[::-1], order="C")
+        dst_grid_shape = w.dst_grid_dims.values
+        dst_grid_center_lat = w.yc_b.data.reshape(dst_grid_shape[::-1])
+        dst_grid_center_lon = w.xc_b.data.reshape(dst_grid_shape[::-1])
 
         dst_mask = w.mask_b
 
@@ -271,7 +271,7 @@ def apply_weights(source_data, weights):
         remap_matrix = w.remap_matrix[:, 0]
         w_shape = (w.sizes["src_grid_size"], w.sizes["dst_grid_size"])
 
-        dst_grid_shape = w.dst_grid_dims.data
+        dst_grid_shape = w.dst_grid_dims.values
         dst_grid_center_lat = w.dst_grid_center_lat.data.reshape(
             dst_grid_shape[::-1], order="C"
         )

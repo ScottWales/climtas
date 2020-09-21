@@ -350,3 +350,44 @@ def test_regrid_weight_gen(weight_gen, weight_args):
 
     # Output is masked
     assert numpy.isnan(b[6, 4])
+
+
+def test_chunked_weights():
+    alats = 10
+    alons = 11
+
+    a = xarray.DataArray(
+        numpy.zeros((alats, alons)),
+        name="var",
+        dims=["lat", "lon"],
+        coords={
+            "lat": numpy.linspace(-90, 90, alats),
+            "lon": numpy.linspace(0, 360, alons, endpoint=False),
+        },
+    )
+    a.lat.attrs["units"] = "degrees_north"
+    a.lon.attrs["units"] = "degrees_east"
+
+    a[1, 3] = numpy.nan
+
+    blats = 12
+    blons = 13
+
+    b = xarray.DataArray(
+        numpy.zeros((blats, blons)),
+        name="var",
+        dims=["lat", "lon"],
+        coords={
+            "lat": numpy.linspace(-90, 90, blats),
+            "lon": numpy.linspace(-180, 180, blons, endpoint=False),
+        },
+    )
+    b.lat.attrs["units"] = "degrees_north"
+    b.lon.attrs["units"] = "degrees_east"
+
+    b[6, 4] = numpy.nan
+
+    w = esmf_generate_weights(a, b)
+    w = w.chunk({'n_s': 10})
+
+    c = regrid(a, weights=w)
