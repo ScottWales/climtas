@@ -78,3 +78,24 @@ def test_to_netcdf_series(tmpdir):
     io.to_netcdf_series(data, path, groupby="group")
     assert (tmpdir / "data_0.nc").exists()
     assert (tmpdir / "data_1.nc").exists()
+
+
+def test_to_netcdf_throttled_fillvalue(tmpdir, distributed_client):
+    def helper(path, data):
+        da = xarray.DataArray(data, dims=["t", "x", "y"], name="test")
+        da.encoding['_FillValue'] = 1
+        io.to_netcdf_throttled(da, path)
+        out = xarray.open_dataset(str(path)).test
+        xarray.testing.assert_identical(da, out)
+        assert out.encoding['_FillValue'] == 1
+
+    path = tmpdir / "numpy.nc"
+    data = numpy.zeros([10, 10, 10])
+    helper(path, data)
+
+    path = tmpdir / "dask.nc"
+    data = dask.array.zeros([10, 10, 10])
+    helper(path, data)
+
+    data = dask.array.random.random([10, 10, 10]) + numpy.random.random([10, 10, 10])
+    helper(path, data)

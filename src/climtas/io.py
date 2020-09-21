@@ -33,12 +33,13 @@ def _ds_encoding(ds, complevel):
     # Setup compression and chunking
     encoding = {}
     for k, v in ds.data_vars.items():
-        encoding[k] = {
+        encoding[k] = v.encoding
+        encoding[k].update({
             "zlib": True,
             "shuffle": True,
             "complevel": complevel,
             "chunksizes": getattr(v.data, "chunksize", None),
-        }
+        })
     return encoding
 
 
