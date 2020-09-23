@@ -296,6 +296,65 @@ def test_esmf_generate_weights():
     "weight_gen,weight_args",
     [
         (esmf_generate_weights, {}),
+        (esmf_generate_weights, {"method": "patch"}),
+    ],
+)
+def test_nco(tmpdir, weight_gen, weight_args):
+    alats = 10
+    alons = 11
+
+    a = xarray.DataArray(
+        numpy.random.random((alats, alons)),
+        name="var",
+        dims=["lat", "lon"],
+        coords={
+            "lat": numpy.linspace(-90, 90, alats),
+            "lon": numpy.linspace(0, 360, alons, endpoint=False),
+        },
+    )
+    a.lat.attrs["units"] = "degrees_north"
+    a.lon.attrs["units"] = "degrees_east"
+
+    a[1:3, 3:9] = numpy.nan
+
+    blats = 13
+    blons = 17
+
+    b = xarray.DataArray(
+        numpy.zeros((blats, blons)),
+        name="var",
+        dims=["lat", "lon"],
+        coords={
+            "lat": numpy.linspace(-90, 90, blats),
+            "lon": numpy.linspace(-180, 180, blons, endpoint=False),
+        },
+    )
+    b.lat.attrs["units"] = "degrees_north"
+    b.lon.attrs["units"] = "degrees_east"
+
+    w = weight_gen(a, b, **weight_args)
+
+    c = regrid(a, weights=w)
+
+    afile = str(tmpdir / "a.nc")
+    a.to_netcdf(afile)
+
+    wfile = str(tmpdir / "w.nc")
+    w.to_netcdf(wfile)
+
+    nfile = str(tmpdir / "n.nc")
+
+    subprocess.run(["ncks", "--map", wfile, afile, nfile], check=True)
+
+    n = xarray.open_dataset(nfile)["var"]
+
+    numpy.testing.assert_array_equal(c.data, n.data)
+
+
+@pytest.mark.parametrize(
+    "weight_gen,weight_args",
+    [
+        (esmf_generate_weights, {}),
         (cdo_generate_weights, {}),
         (cdo_generate_weights, {"method": "ycon"}),
     ],
@@ -388,7 +447,7 @@ def test_chunked_weights():
     b[6, 4] = numpy.nan
 
     w = esmf_generate_weights(a, b)
-    w = w.chunk({'n_s': 10})
+    w = w.chunk({"n_s": 10})
 
     c = regrid(a, weights=w)
 
@@ -430,7 +489,7 @@ def test_regrid_mask():
 
     w = esmf_generate_weights(a, b)
 
-    a[1,3] = 1e10
+    a[1, 3] = 1e10
     c = regrid(a, weights=w)
 
     assert c.max().values < 10

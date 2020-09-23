@@ -34,12 +34,14 @@ def _ds_encoding(ds, complevel):
     encoding = {}
     for k, v in ds.data_vars.items():
         encoding[k] = v.encoding
-        encoding[k].update({
-            "zlib": True,
-            "shuffle": True,
-            "complevel": complevel,
-            "chunksizes": getattr(v.data, "chunksize", None),
-        })
+        encoding[k].update(
+            {
+                "zlib": True,
+                "shuffle": True,
+                "complevel": complevel,
+                "chunksizes": getattr(v.data, "chunksize", None),
+            }
+        )
     return encoding
 
 

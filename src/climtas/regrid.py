@@ -227,7 +227,37 @@ def esmf_generate_weights(
         weight_file.close()
 
 
-def apply_weights(source_data, weights):
+def compute_weights_matrix(weights):
+    """
+    Convert the weights from CDO/ESMF to a numpy array
+    """
+    w = weights
+    if w.title.startswith("ESMF"):
+        # ESMF style weights
+        src_address = w.col - 1
+        dst_address = w.row - 1
+        remap_matrix = w.S
+        w_shape = (w.sizes["n_a"], w.sizes["n_b"])
+
+    else:
+        # CDO style weights
+        src_address = w.src_address - 1
+        dst_address = w.dst_address - 1
+        remap_matrix = w.remap_matrix[:, 0]
+        w_shape = (w.sizes["src_grid_size"], w.sizes["dst_grid_size"])
+
+    # Create a sparse array from the weights
+    sparse_weights_delayed = dask.delayed(sparse.COO)(
+        [src_address.data, dst_address.data], remap_matrix.data, shape=w_shape
+    )
+    sparse_weights = dask.array.from_delayed(
+        sparse_weights_delayed, shape=w_shape, dtype=remap_matrix.dtype
+    )
+
+    return sparse_weights
+
+
+def apply_weights(source_data, weights, weights_matrix=None):
     """
     Apply the CDO weights ``weights`` to ``source_data``, performing a regridding operation
 
@@ -297,12 +327,8 @@ def apply_weights(source_data, weights):
     kept_shape = list(source_data.shape[0:-2])
     kept_dims = list(source_data.dims[0:-2])
 
-    # Create a sparse array from the weights
-    sparse_weights_delayed = dask.delayed(sparse.COO)(
-        [src_address.data, dst_address.data], remap_matrix.data, shape=w_shape
-    )
-    sparse_weights = dask.array.from_delayed(sparse_weights_delayed,
-            shape=w_shape, dtype=remap_matrix.dtype)
+    if weights_matrix is None:
+        weights_matrix = compute_weights_matrix(weights)
 
     # Remove the spatial axes, apply the weights, add the spatial axes back
     source_array = source_data.data
@@ -316,9 +342,11 @@ def apply_weights(source_data, weights):
     source_array = dask.array.ma.fix_invalid(source_array)
     source_array = dask.array.ma.filled(source_array)
 
-    target_dask = dask.array.tensordot(source_array, sparse_weights, axes=1)
+    target_dask = dask.array.tensordot(source_array, weights_matrix, axes=1)
 
-    bmask = numpy.broadcast_to(dst_mask.data.reshape([1 for d in kept_shape] + [-1]), target_dask.shape)
+    bmask = numpy.broadcast_to(
+        dst_mask.data.reshape([1 for d in kept_shape] + [-1]), target_dask.shape
+    )
 
     target_dask = dask.array.where(bmask != 0.0, target_dask, numpy.nan)
     target_dask = dask.array.reshape(
@@ -397,6 +425,8 @@ class Regridder(object):
             _target_grid = identify_grid(target_grid)
             self.weights = cdo_generate_weights(_source_grid, _target_grid)
 
+        self.weights_matrix = compute_weights_matrix(self.weights)
+
     def regrid(self, source_data):
         """Regrid ``source_data`` to match the target grid
 
@@ -412,7 +442,9 @@ class Regridder(object):
         if isinstance(source_data, xarray.Dataset):
             return source_data.apply(self.regrid)
         else:
-            return apply_weights(source_data, self.weights)
+            return apply_weights(
+                source_data, self.weights, weights_matrix=self.weights_matrix
+            )
 
 
 def regrid(source_data, target_grid=None, weights=None):

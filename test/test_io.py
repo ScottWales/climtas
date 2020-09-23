@@ -83,11 +83,11 @@ def test_to_netcdf_series(tmpdir):
 def test_to_netcdf_throttled_fillvalue(tmpdir, distributed_client):
     def helper(path, data):
         da = xarray.DataArray(data, dims=["t", "x", "y"], name="test")
-        da.encoding['_FillValue'] = 1
+        da.encoding["_FillValue"] = 1
         io.to_netcdf_throttled(da, path)
         out = xarray.open_dataset(str(path)).test
         xarray.testing.assert_identical(da, out)
-        assert out.encoding['_FillValue'] == 1
+        assert out.encoding["_FillValue"] == 1
 
     path = tmpdir / "numpy.nc"
     data = numpy.zeros([10, 10, 10])

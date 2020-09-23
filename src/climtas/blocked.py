@@ -140,23 +140,19 @@ class BlockedResampler:
         return result
 
     def mean(self) -> xarray.DataArray:
-        """ Reduce the samples using numpy.mean
-        """
+        """Reduce the samples using numpy.mean"""
         return self.reduce(numpy.mean)
 
     def min(self) -> xarray.DataArray:
-        """ Reduce the samples using numpy.min
-        """
+        """Reduce the samples using numpy.min"""
         return self.reduce(numpy.min)
 
     def max(self) -> xarray.DataArray:
-        """ Reduce the samples using numpy.max
-        """
+        """Reduce the samples using numpy.max"""
         return self.reduce(numpy.max)
 
     def sum(self) -> xarray.DataArray:
-        """ Reduce the samples using numpy.count
-        """
+        """Reduce the samples using numpy.count"""
         return self.reduce(numpy.sum)
 
 
@@ -177,7 +173,7 @@ def blocked_resample(da: xarray.DataArray, indexer=None, **kwargs) -> BlockedRes
     >>> blocked_daily_max = blocked_resample(hourly, time=24).max()
     >>> xarray_daily_max = hourly.resample(time='1D').max()
     >>> xarray.testing.assert_equal(blocked_daily_max, xarray_daily_max)
-    
+
     Args:
         da (:class:`xarray.DataArray`): Resample target
         indexer/kwargs (Dict[dim, count]): Mapping of dimension name to count along that axis
@@ -409,35 +405,35 @@ class BlockedGroupby:
         return block_da.reduce(op, dim="year", **kwargs)
 
     def mean(self) -> xarray.DataArray:
-        """ Reduce the samples using :func:`numpy.mean`
+        """Reduce the samples using :func:`numpy.mean`
 
         See: :meth:`reduce`
         """
         return self.block_dataarray().mean(dim="year")
 
     def min(self) -> xarray.DataArray:
-        """ Reduce the samples using :func:`numpy.min`
+        """Reduce the samples using :func:`numpy.min`
 
         See: :meth:`reduce`
         """
         return self.block_dataarray().min(dim="year")
 
     def max(self) -> xarray.DataArray:
-        """ Reduce the samples using :func:`numpy.max`
+        """Reduce the samples using :func:`numpy.max`
 
         See: :meth:`reduce`
         """
         return self.block_dataarray().max(dim="year")
 
     def sum(self) -> xarray.DataArray:
-        """ Reduce the samples using :func:`numpy.sum`
+        """Reduce the samples using :func:`numpy.sum`
 
         See: :meth:`reduce`
         """
         return self.block_dataarray().sum(dim="year")
 
     def nanpercentile(self, q: float) -> xarray.DataArray:
-        """ Reduce the samples using :func:`numpy.nanpercentile` over the 'year' axis
+        """Reduce the samples using :func:`numpy.nanpercentile` over the 'year' axis
 
         Slower than :meth:`percentile`, but will be correct if there's
         missing data (e.g. on leap days)
@@ -462,7 +458,7 @@ class BlockedGroupby:
         return result
 
     def percentile(self, q: float) -> xarray.DataArray:
-        """ Reduce the samples using :func:`numpy.percentile` over the 'year' axis
+        """Reduce the samples using :func:`numpy.percentile` over the 'year' axis
 
         Faster than :meth:`nanpercentile`, but may be incorrect if there's
         missing data (e.g. on leap days)
@@ -487,7 +483,7 @@ class BlockedGroupby:
         return result
 
     def rank(self, method: str = "average") -> xarray.DataArray:
-        """ Rank the samples using :func:`scipy.stats.rankdata` over the 'year' axis
+        """Rank the samples using :func:`scipy.stats.rankdata` over the 'year' axis
 
         Args:
             method: See :func:`scipy.stats.rankdata`
@@ -523,8 +519,7 @@ class BlockedGroupby:
         return self.apply(ranker)
 
     def _binary_op(self, other: xarray.DataArray, op) -> xarray.DataArray:
-        """Generic binary operation (add, subtract etc.)
-        """
+        """Generic binary operation (add, subtract etc.)"""
         if not isinstance(other, xarray.DataArray):
             raise TypeError(f"Other operand must be a DataArray (got {type(other)})")
 

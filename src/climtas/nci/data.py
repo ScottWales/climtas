@@ -29,8 +29,7 @@ def validate_vocab(name, value, valid_values):
 
 
 def era5(variable, category):
-    """Open a ERA5 variable
-    """
+    """Open a ERA5 variable"""
     validate_vocab(
         "category", category, ["pressure", "surface", "land", "wave", "static"]
     )
