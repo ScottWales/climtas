@@ -294,10 +294,7 @@ def test_esmf_generate_weights():
 
 @pytest.mark.parametrize(
     "weight_gen,weight_args",
-    [
-        (esmf_generate_weights, {}),
-        (esmf_generate_weights, {"method": "patch"}),
-    ],
+    [(esmf_generate_weights, {}), (esmf_generate_weights, {"method": "patch"})],
 )
 def test_nco(tmpdir, weight_gen, weight_args):
     alats = 10

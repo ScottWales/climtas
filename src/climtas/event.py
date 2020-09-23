@@ -183,6 +183,7 @@ def atleastn(da: xarray.DataArray, n: int, dim: str = "time") -> xarray.DataArra
     """
 
     def atleastn_helper(array, axis, n):
+        axis = axis[0]
         count = numpy.zeros_like(numpy.take(array, 0, axis=axis), dtype="i4")
         mask = numpy.empty_like(numpy.take(array, 0, axis=axis), dtype="bool")
         mask = True

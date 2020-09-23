@@ -41,6 +41,7 @@ test:
         - cdo
         - esmf
         - hdf5
+        - nco
     files:
         - setup.cfg
         - test
