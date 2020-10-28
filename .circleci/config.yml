@@ -22,6 +22,10 @@ jobs:
                 path: /tmp/artifacts
             - store_test_results:
                 path: /tmp/artifacts/pytest
+            - persist_to_workspace:
+                root: /tmp/artifacts
+                paths: 
+                    - '*.tar.bz2'
     black-check:
         docker:
             - image: continuumio/miniconda3
@@ -43,6 +47,17 @@ jobs:
                 command: mypy
                 when: always
 
+    publish:
+        docker:
+            - image: continuumio/miniconda3
+        steps:
+            - attach_workspace:
+                at: /tmp/artifacts
+
+            - run: conda install anaconda-client
+            - run: |
+                anaconda --token "${ANACONDA_TOKEN}" upload --user "${ANACONDA_USER}" /tmp/artifacts/*.tar.bz2
+
 workflows:
     version: 2
     ci-check:
@@ -50,3 +65,14 @@ workflows:
             - black-check
             - mypy-check
             - build
+                filters:
+                    tags:
+                        only: /.*/
+            - publish:
+                requires:
+                    - build
+                filters:
+                    tags:
+                        only: /.*/
+                    branches:
+                        ignore: /.*/
