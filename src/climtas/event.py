@@ -26,6 +26,7 @@ import pandas
 import xarray
 from tqdm.auto import tqdm
 import typing as T
+import sparse
 
 
 def find_events(da: xarray.DataArray, min_duration: int = 1) -> pandas.DataFrame:
