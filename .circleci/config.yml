@@ -23,9 +23,9 @@ jobs:
             - store_test_results:
                 path: /tmp/artifacts/pytest
             - persist_to_workspace:
-                root: /tmp/artifacts
+                root: /opt/conda/conda-bld
                 paths: 
-                    - '*.tar.bz2'
+                    - '*/*.tar.bz2'
     black-check:
         docker:
             - image: continuumio/miniconda3
@@ -56,7 +56,7 @@ jobs:
 
             - run: conda install anaconda-client
             - run: |
-                anaconda --token "${ANACONDA_TOKEN}" upload --user "${ANACONDA_USER}" /tmp/artifacts/*.tar.bz2
+                anaconda --token "${ANACONDA_TOKEN}" upload --user "${ANACONDA_USER}" /tmp/artifacts/*/*.tar.bz2
 
 workflows:
     version: 2
