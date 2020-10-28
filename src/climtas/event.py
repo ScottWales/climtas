@@ -83,7 +83,9 @@ def find_events(da: xarray.DataArray, min_duration: int = 1) -> pandas.DataFrame
         records.append(df[df.event_duration >= min_duration])
 
     for t in tqdm(range(da.sizes["time"])):
-        current_step = numpy.atleast_1d(numpy.take(da.data, t, axis=da.get_axis_num("time")))
+        current_step = numpy.atleast_1d(
+            numpy.take(da.data, t, axis=da.get_axis_num("time"))
+        )
 
         try:
             current_step = current_step.compute()
@@ -230,14 +232,17 @@ def event_coords(da: xarray.DataArray, events: pandas.DataFrame) -> pandas.DataF
     >>> events = find_events(da > 0)
     >>> event_coords(da, events)
             time event_duration
-    0 2001-01-02         2 days
-    1 2001-01-06         1 days
+    0 2001-01-02         3 days
+    1 2001-01-06            NaT
 
+    If 'events' has an 'event_duration' column this will be converted to a time
+    duration. If the event goes to the end of the data the duration is marked
+    as not a time, as the end date is unknown.
 
     Args:
         da (:class:`xarray.DataArray`): Source data values
         events (:class:`pandas.DataFrame`): Event start & durations, e.g. from
-            :func:`find_events`
+            :func:`find_events` or :func:`extend_events`
 
     Returns:
         :class:`pandas.DataFrame` with the same columns as 'events', but with
@@ -247,7 +252,94 @@ def event_coords(da: xarray.DataArray, events: pandas.DataFrame) -> pandas.DataF
     for d in da.dims:
         coords[d] = da[d].values[events[d].values]
 
-    end = da["time"].values[events["time"].values + events["event_duration"].values - 1]
-    coords["event_duration"] = end - coords["time"]
+    if "event_duration" in events:
+        end_index = events["time"].values + events["event_duration"].values
+        end = da["time"].values[numpy.clip(end_index, 0, da.sizes["time"] - 1)]
+        coords["event_duration"] = end - coords["time"]
+        coords["event_duration"][end_index >= da.sizes["time"]] = numpy.timedelta64(
+            "nat"
+        )
 
     return pandas.DataFrame(coords, index=events.index)
+
+
+def extend_events(events: pandas.DataFrame):
+    """
+    Extend the 'events' DataFrame to hold indices for the full event duration
+
+    :func:`find_events` returns only the start index of events. This will
+    extend the DataFrame to cover the indices of the entire event. In addition
+    to the indices a column 'event_id' gives the matching index in 'event' for
+    the row
+
+    >>> da = xarray.DataArray([0,1,1,1,0,1,1], coords=[('time', pandas.date_range('20010101', periods=7, freq='D'))])
+    >>> events = find_events(da > 0)
+    >>> extend_events(events)
+       time  event_id
+    0     1         0
+    1     2         0
+    2     3         0
+    3     5         1
+    4     6         1
+
+    Args:
+        da (:class:`xarray.DataArray`): Source data values
+        events (:class:`pandas.DataFrame`): Event start & durations, e.g. from
+            :func:`find_events`
+    """
+
+    def extend_row(row):
+        repeat = numpy.repeat(row.values[None, :], row["event_duration"], axis=0)
+
+        df = pandas.DataFrame(repeat, columns=row.index)
+
+        df["time"] = row["time"] + numpy.arange(row["event_duration"])
+        df["event_id"] = row.name
+        del df["event_duration"]
+
+        return df
+
+    return pandas.concat(
+        events.apply(extend_row, axis="columns").values, ignore_index=True
+    )
+
+
+def event_da(
+    da: xarray.DataArray, events: pandas.DataFrame, values: numpy.ndarray
+) -> xarray.DataArray:
+    """
+    Create a :obj:`xarray.DataArray` with 'values' at event locations
+
+    Args:
+        da (:class:`xarray.DataArray`): Source data values
+        events (:class:`pandas.DataFrame`): Index values, e.g. from
+            :func:`find_events` or :func:`extend_events`
+        values (:class:`numpy.ndarray`-like): Value to give to each location specified by event
+
+    Returns:
+        :obj:`xarray.DataArray` with the same axes as `da` and values at
+        `event` given by `values`.g
+    """
+
+    s = sparse.COO(
+        [events[d] for d in da.dims], values, shape=da.shape, fill_value=numpy.nan
+    )
+
+    # It's more helpful to have a dense array, but let's only convert
+    # what we need when we need it using dask
+
+    # Add dask chunking
+    try:
+        chunks = da.data.chunks
+    except AttributeError:
+        chunks = "auto"
+    d = dask.array.from_array(s, chunks=chunks)
+
+    # Add an operation that converts chunks to dense when needed
+    def dense_block(b):
+        return b.todense()
+
+    dense = d.map_blocks(dense_block, dtype=d.dtype)
+
+    # Use the input data's coordinates
+    return xarray.DataArray(dense, coords=da.coords)

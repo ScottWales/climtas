@@ -54,7 +54,7 @@ def test_find_events():
     assert events["event_duration"].loc[1, 0] == 3
     assert len(events) == 1
 
-    da = da.chunk({'x': 1, 'time': 2})
+    da = da.chunk({"x": 1, "time": 2})
     events = find_events(da > 0, min_duration=3)
 
     events = events.set_index(["time", "x"])
