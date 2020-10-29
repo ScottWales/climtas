@@ -115,3 +115,38 @@ def throttle_futures(graph, key_list, optimizer=None, max_tasks=None):
         results.append(result)
 
     return results
+
+
+def recursive_block_map(func, array: dask.array.Array, *args, _indices=(), _axis=0, _offset=None, delayed: bool = True, **kwargs):
+    """
+    Map a function to each chunk in array
+
+    Args:
+        func: Function to apply, will receive a chunk from 'array' as the first argument
+        array: Array to apply to
+        *args, **kwargs: Passed through to func
+        delayed: If true, the function will be delayed for later parallel computation
+
+    Returns:
+        A generator with each item 'func' applied to some chunk of 'array' (unsorted)
+    """
+
+    if _offset is None:
+        _offset = [0]
+    else:
+        _offset.append(0)
+
+    for i in range(array.numblocks[_axis]):
+        idx = (*_indices, i)
+
+        if _axis == len(array.numblocks) - 1:
+
+            if delayed:
+                yield dask.delayed(func)(array.blocks[idx], *args, chunk_offset=_offset, **kwargs)
+            else:
+                yield func(array.blocks[idx], *args, chunk_offset=_offset, **kwargs)
+        else:
+            yield from recursive_block_map(func, array, *args, **kwargs, _indices=idx, _axis=_axis+1, _offset=_offset, delayed=delayed)
+
+        _offset[_axis] += array.chunks[_axis][i]
+    _offset.pop()

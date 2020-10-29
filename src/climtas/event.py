@@ -27,6 +27,7 @@ import xarray
 from tqdm.auto import tqdm
 import typing as T
 import sparse
+from .helpers import recursive_block_map
 
 
 def find_events(da: xarray.DataArray, min_duration: int = 1, dim: str = 'time') -> pandas.DataFrame:
@@ -49,93 +50,82 @@ def find_events(da: xarray.DataArray, min_duration: int = 1, dim: str = 'time') 
             active. Must have a 'time' dimension, dtype is expected to be bool
             (or something else that is truthy when an event is active)
         min_duration (:class:`int`): Minimum event duration to return
+        dim (:class:`str`): Dimension to act on (default 'time')
 
     Returns:
         A :class:`pandas.DataFrame` containing event start points and
         durations. This will contain columns for each dimension in da, as well
         as an 'event_duration' column
     """
-#
-#    duration = numpy.atleast_1d(numpy.zeros_like(da.isel(time=0), dtype="i4"))
-#
-#    columns = ["time", *[d for d in da.dims if d != "time"], "event_duration"]
-#    records = []
-#
-#    def add_events(locations):
-#        end_locations = numpy.nonzero(locations)
-#        end_durations = duration[end_locations]
-#        start_times = t - end_durations
-#
-#        # Reset events that have ended
-#        duration[end_locations] = 0
-#
-#        if len(end_durations) == 0:
-#            return
-#
-#        if len(columns) == 2:
-#            # 1d input dataset
-#            data = numpy.stack([start_times, end_durations], axis=1)
-#        else:
-#            data = numpy.concatenate(
-#                [start_times[None, :], end_locations, end_durations[None, :]], axis=0
-#            ).T
-#
-#        df = pandas.DataFrame(data=data, columns=columns)
-#        records.append(df[df.event_duration >= min_duration])
-#
-#    for t in tqdm(range(da.sizes["time"])):
-#        current_step = numpy.atleast_1d(
-#            numpy.take(da.data, t, axis=da.get_axis_num("time"))
-#        )
-#
-#        try:
-#            current_step = current_step.compute()
-#        except:
-#            pass
-#
-#        # Add the current step
-#        duration = duration + numpy.where(current_step, 1, 0)
-#
-#        # End points are where we have an active duration but no event in the current step
-#        add_events(numpy.logical_and(duration > 0, numpy.logical_not(current_step)))
-#
-#    # Add events still active at the end
-#    t += 1
-#    add_events(duration > 0)
-#
-#    return pandas.concat(records, ignore_index=True)
-#
-#
-#def find_events(da, min_duration, dim="time"):
-
-    blocks = []
 
     time_axis = da.get_axis_num(dim)
 
-    try:
-        # Loop over dask blocks
-        for b in da.data.blocks:
-            blocks.append(find_events_block(b, time_axis, min_duration))
-    except AttributeError:
-        # Ordinary array
-        blocks.append(find_events_block(da.data, time_axis, min_duration))
-
     columns = ["time", *[d for d in da.dims if d != "time"], "event_duration"]
-    data = numpy.concatenate(blocks, axis=0)
 
-    return pandas.DataFrame(data, columns=columns)
+    if isinstance(da.data, dask.array.Array):
+        blocks = recursive_block_map(find_events_block, da.data,
+                time_axis=time_axis, min_duration=min_duration, delayed=True)
+
+        computed = dask.compute(blocks)
+        computed = [c for c in computed[0] if c is not None]
+
+        if len(computed) == 0:
+            return None
+
+        data = numpy.concatenate(computed, axis=0)
+
+    else:
+        data = find_events_block(da.data, time_axis, min_duration)
+
+    df = pandas.DataFrame(data, columns=columns)
+
+    df = join_events(df, min_duration)
+
+    return df
 
 
-def find_events_block(block, time_axis: int, min_duration: int):
-    duration = numpy.atleast_1d(numpy.zeros_like(numpy.take(block, 0, time_axis), dtype="i4"))
+def join_events(df, min_duration):
+    """
+    Join consecutive events together
+    """
 
-    records = []
+    def join_location(s):
+        values = s.values.copy()
 
+        start = values[0,:]
+        records = []
+
+        for i in range(1, values.shape[0]):
+            if start[0]+start[-1] >= values[i,0]:
+                start[-1] += values[i,-1]
+                continue
+
+            if start[-1] >= min_duration:
+                records.append(start)
+
+            start = values[i, :]
+
+        if start[-1] >= min_duration:
+            records.append(start)
+
+        return pandas.DataFrame(records, columns=s.columns)
+
+    if len(df.columns) == 2:
+        return join_location(df)
+    else:
+        return df.groupby([x for x in df.columns.values[1:-1]]).apply(join_location)
+
+
+def find_events_block(block, time_axis: int, min_duration: int, chunk_offset):
     try:
         # Load the block's data if a dask array
         block = block.compute()
     except AttributeError:
         pass
+
+    duration = numpy.atleast_1d(numpy.zeros_like(numpy.take(block, 0, time_axis), dtype="i4"))
+
+    records = []
 
     def add_events(locations):
         end_locations = numpy.nonzero(locations)
@@ -148,15 +138,20 @@ def find_events_block(block, time_axis: int, min_duration: int):
         if len(end_durations) == 0:
             return
 
-        if block.ndim == 1:
+        if block.ndim == 1 and (end_durations[0] >= min_duration or start_times[0] == 0 or t == block.shape[time_axis]):
             # 1d input dataset
-            data = numpy.stack([start_times, end_durations], axis=1)
-        else:
+            records.append(numpy.stack([start_times, end_durations], axis=1))
+        elif block.ndim > 1:
             data = numpy.concatenate(
                 [start_times[None, :], end_locations, end_durations[None, :]], axis=0
             ).T
 
-        records.append(data)
+            if t < block.shape[time_axis]:
+                # Append events if they started at t0 or if they've run for the minimum duration
+                records.append(data[numpy.logical_or(data[:,-1] >= min_duration, start_times == 0),:])
+            else:
+                # Append events if they're active at the end
+                records.append(data)
 
     for t in range(block.shape[time_axis]):
         current_step = numpy.atleast_1d(
@@ -173,7 +168,19 @@ def find_events_block(block, time_axis: int, min_duration: int):
     t += 1
     add_events(duration > 0)
 
-    return numpy.concatenate(records, axis=0)
+    if len(records) == 0:
+        return None
+
+    records = numpy.concatenate(records, axis=0)
+    if records.size == 0: 
+        return None
+
+    records[:,0] += chunk_offset[time_axis]
+
+    if block.ndim > 1:
+        records[:,1:-1] += [c for i,c in enumerate(chunk_offset) if i != time_axis]
+
+    return records
 
 
 def map_events(
