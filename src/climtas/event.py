@@ -30,7 +30,9 @@ import sparse
 from .helpers import recursive_block_map
 
 
-def find_events(da: xarray.DataArray, min_duration: int = 1, dim: str = 'time') -> pandas.DataFrame:
+def find_events(
+    da: xarray.DataArray, min_duration: int = 1, dim: str = "time"
+) -> pandas.DataFrame:
     """Find 'events' in a DataArray mask
 
     Events are defined as being active when the array value is truthy. You
@@ -63,8 +65,13 @@ def find_events(da: xarray.DataArray, min_duration: int = 1, dim: str = 'time') 
     columns = ["time", *[d for d in da.dims if d != "time"], "event_duration"]
 
     if isinstance(da.data, dask.array.Array):
-        blocks = recursive_block_map(find_events_block, da.data,
-                time_axis=time_axis, min_duration=min_duration, delayed=True)
+        blocks = recursive_block_map(
+            find_events_block,
+            da.data,
+            time_axis=time_axis,
+            min_duration=min_duration,
+            delayed=True,
+        )
 
         computed = dask.compute(blocks)
         computed = [c for c in computed[0] if c is not None]
@@ -92,12 +99,12 @@ def join_events(df, min_duration):
     def join_location(s):
         values = s.values.copy()
 
-        start = values[0,:]
+        start = values[0, :]
         records = []
 
         for i in range(1, values.shape[0]):
-            if start[0]+start[-1] >= values[i,0]:
-                start[-1] += values[i,-1]
+            if start[0] + start[-1] >= values[i, 0]:
+                start[-1] += values[i, -1]
                 continue
 
             if start[-1] >= min_duration:
@@ -123,7 +130,9 @@ def find_events_block(block, time_axis: int, min_duration: int, chunk_offset):
     except AttributeError:
         pass
 
-    duration = numpy.atleast_1d(numpy.zeros_like(numpy.take(block, 0, time_axis), dtype="i4"))
+    duration = numpy.atleast_1d(
+        numpy.zeros_like(numpy.take(block, 0, time_axis), dtype="i4")
+    )
 
     records = []
 
@@ -138,7 +147,11 @@ def find_events_block(block, time_axis: int, min_duration: int, chunk_offset):
         if len(end_durations) == 0:
             return
 
-        if block.ndim == 1 and (end_durations[0] >= min_duration or start_times[0] == 0 or t == block.shape[time_axis]):
+        if block.ndim == 1 and (
+            end_durations[0] >= min_duration
+            or start_times[0] == 0
+            or t == block.shape[time_axis]
+        ):
             # 1d input dataset
             records.append(numpy.stack([start_times, end_durations], axis=1))
         elif block.ndim > 1:
@@ -148,15 +161,18 @@ def find_events_block(block, time_axis: int, min_duration: int, chunk_offset):
 
             if t < block.shape[time_axis]:
                 # Append events if they started at t0 or if they've run for the minimum duration
-                records.append(data[numpy.logical_or(data[:,-1] >= min_duration, start_times == 0),:])
+                records.append(
+                    data[
+                        numpy.logical_or(data[:, -1] >= min_duration, start_times == 0),
+                        :,
+                    ]
+                )
             else:
                 # Append events if they're active at the end
                 records.append(data)
 
     for t in range(block.shape[time_axis]):
-        current_step = numpy.atleast_1d(
-            numpy.take(block, t, axis=time_axis)
-        )
+        current_step = numpy.atleast_1d(numpy.take(block, t, axis=time_axis))
 
         # Add the current step
         duration = duration + numpy.where(current_step, 1, 0)
@@ -172,13 +188,13 @@ def find_events_block(block, time_axis: int, min_duration: int, chunk_offset):
         return None
 
     records = numpy.concatenate(records, axis=0)
-    if records.size == 0: 
+    if records.size == 0:
         return None
 
-    records[:,0] += chunk_offset[time_axis]
+    records[:, 0] += chunk_offset[time_axis]
 
     if block.ndim > 1:
-        records[:,1:-1] += [c for i,c in enumerate(chunk_offset) if i != time_axis]
+        records[:, 1:-1] += [c for i, c in enumerate(chunk_offset) if i != time_axis]
 
     return records
 

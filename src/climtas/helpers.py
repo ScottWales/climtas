@@ -117,7 +117,16 @@ def throttle_futures(graph, key_list, optimizer=None, max_tasks=None):
     return results
 
 
-def recursive_block_map(func, array: dask.array.Array, *args, _indices=(), _axis=0, _offset=None, delayed: bool = True, **kwargs):
+def recursive_block_map(
+    func,
+    array: dask.array.Array,
+    *args,
+    _indices=(),
+    _axis=0,
+    _offset=None,
+    delayed: bool = True,
+    **kwargs
+):
     """
     Map a function to each chunk in array
 
@@ -142,11 +151,22 @@ def recursive_block_map(func, array: dask.array.Array, *args, _indices=(), _axis
         if _axis == len(array.numblocks) - 1:
 
             if delayed:
-                yield dask.delayed(func)(array.blocks[idx], *args, chunk_offset=_offset, **kwargs)
+                yield dask.delayed(func)(
+                    array.blocks[idx], *args, chunk_offset=_offset, **kwargs
+                )
             else:
                 yield func(array.blocks[idx], *args, chunk_offset=_offset, **kwargs)
         else:
-            yield from recursive_block_map(func, array, *args, **kwargs, _indices=idx, _axis=_axis+1, _offset=_offset, delayed=delayed)
+            yield from recursive_block_map(
+                func,
+                array,
+                *args,
+                **kwargs,
+                _indices=idx,
+                _axis=_axis + 1,
+                _offset=_offset,
+                delayed=delayed
+            )
 
         _offset[_axis] += array.chunks[_axis][i]
     _offset.pop()

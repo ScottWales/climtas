@@ -57,21 +57,22 @@ def test_find_events():
 
 def test_find_events_dask():
     da = xarray.DataArray(
-        dask.array.from_array([[0, 1, 1, 1, 0], [1, 1, 0, 1, 1]], chunks=(1,2))
-        , dims=["x", "time"])
+        dask.array.from_array([[0, 1, 1, 1, 0], [1, 1, 0, 1, 1]], chunks=(1, 2)),
+        dims=["x", "time"],
+    )
 
     events = find_events(da > 0, min_duration=3)
-    numpy.testing.assert_array_equal(events.values, [[1,0,3]])
+    numpy.testing.assert_array_equal(events.values, [[1, 0, 3]])
 
     events = find_events(da > 0, min_duration=1)
-    numpy.testing.assert_array_equal(events.values, [[1,0,3],[0,1,2],[3,1,2]])
+    numpy.testing.assert_array_equal(events.values, [[1, 0, 3], [0, 1, 2], [3, 1, 2]])
 
     da = xarray.DataArray(
-        dask.array.from_array([0, 1, 1, 1, 0], chunks=(2))
-        , dims=["time"])
+        dask.array.from_array([0, 1, 1, 1, 0], chunks=(2)), dims=["time"]
+    )
 
     events = find_events(da > 0, min_duration=3)
-    numpy.testing.assert_array_equal(events.values, [[1,3]])
+    numpy.testing.assert_array_equal(events.values, [[1, 3]])
 
 
 def test_find_events_1d():
@@ -108,16 +109,18 @@ def test_atleastn():
 
 
 def test_join_events():
-    s = pandas.DataFrame([[0,2],[2, 1]], columns=['time', 'event_duration'])
+    s = pandas.DataFrame([[0, 2], [2, 1]], columns=["time", "event_duration"])
     r = join_events(s, min_duration=0)
-    numpy.testing.assert_array_equal(r.values, [[0,3]])
+    numpy.testing.assert_array_equal(r.values, [[0, 3]])
 
     r = join_events(s, min_duration=3)
-    numpy.testing.assert_array_equal(r.values, [[0,3]])
+    numpy.testing.assert_array_equal(r.values, [[0, 3]])
 
     r = join_events(s, min_duration=4)
     assert len(r) == 0
 
-    s = pandas.DataFrame([[0,1,2],[2,1,1],[3,2,1]], columns=['time', 'x', 'event_duration'])
+    s = pandas.DataFrame(
+        [[0, 1, 2], [2, 1, 1], [3, 2, 1]], columns=["time", "x", "event_duration"]
+    )
     r = join_events(s, min_duration=0)
-    numpy.testing.assert_array_equal(r.values, [[0,1,3],[3,2,1]])
+    numpy.testing.assert_array_equal(r.values, [[0, 1, 3], [3, 2, 1]])
