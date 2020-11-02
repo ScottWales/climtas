@@ -98,7 +98,6 @@ def benchmark(
         run
     """
 
-    css = []
     results = []
     for values in zip(*chunks.values()):
         cs = dict(zip(chunks.keys(), values))
@@ -209,10 +208,10 @@ def profile_once(
         mfdataset_args: Extra arguments to pass to :func:`xarray.open_mfdataset`
 
     Returns:
-        Dict[str, int] :ref:`profiling information<Profile results>`
+        Dict[str, Any] :ref:`profiling information<Profile results>`
     """
 
-    results = {}
+    results: Dict[str, Any] = {}
 
     total_start = time.perf_counter()
 
