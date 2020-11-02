@@ -61,7 +61,14 @@ import pandas
 import numpy
 
 
-def benchmark(paths: str, variable: str, chunks: Dict[str,List[int]], function, run_count: int=3, mfdataset_args: Dict[str, Any]={}):
+def benchmark(
+    paths: str,
+    variable: str,
+    chunks: Dict[str, List[int]],
+    function,
+    run_count: int = 3,
+    mfdataset_args: Dict[str, Any] = {},
+):
     """
     Profile a function on different chunks of data
 
@@ -95,14 +102,23 @@ def benchmark(paths: str, variable: str, chunks: Dict[str,List[int]], function, 
     results = []
     for values in zip(*chunks.values()):
         cs = dict(zip(chunks.keys(), values))
-        results.append(profile(paths, variable, cs, function, run_count, mfdataset_args))
+        results.append(
+            profile(paths, variable, cs, function, run_count, mfdataset_args)
+        )
 
     r = pandas.DataFrame(results)
 
     return r
 
 
-def profile(paths: str, variable: str, chunks: Dict[str, int], function, run_count: int=3, mfdataset_args: Dict[str, Any]={}):
+def profile(
+    paths: str,
+    variable: str,
+    chunks: Dict[str, int],
+    function,
+    run_count: int = 3,
+    mfdataset_args: Dict[str, Any] = {},
+):
     """
     Run a function run_count times, returning the minimum time taken
 
@@ -145,14 +161,20 @@ def profile(paths: str, variable: str, chunks: Dict[str, int], function, run_cou
     for n in range(run_count - 1):
         r = profile_once(paths, variable, chunks, function, mfdataset_args)
 
-        for k,v in r.items():
-            if k.startswith('time_') and v < result[k]:
+        for k, v in r.items():
+            if k.startswith("time_") and v < result[k]:
                 result[k] = v
 
     return result
 
 
-def profile_once(paths: str, variable: str, chunks: Dict[str, int], function, mfdataset_args: Dict[str, Any]={}):
+def profile_once(
+    paths: str,
+    variable: str,
+    chunks: Dict[str, int],
+    function,
+    mfdataset_args: Dict[str, Any] = {},
+):
     """
     Run a single profile instance
 
@@ -176,7 +198,7 @@ def profile_once(paths: str, variable: str, chunks: Dict[str, int], function, mf
      'tasks_in': 513,
      'tasks_out': 1098,
      'tasks_optimized': 1098}
-    
+
     Args:
         paths: Paths to open (as :func:`xarray.open_mfdataset`)
         variable: Variable in the dataset to use
@@ -201,7 +223,9 @@ def profile_once(paths: str, variable: str, chunks: Dict[str, int], function, mf
         var = data[variable]
         tasks_in = len(var.data.__dask_graph__())
         chunks_in = var.data.npartitions
-        chunksize_in = dask.utils.format_bytes(numpy.prod(var.data.chunksize) * var.dtype.itemsize)
+        chunksize_in = dask.utils.format_bytes(
+            numpy.prod(var.data.chunksize) * var.dtype.itemsize
+        )
 
         func_start = time.perf_counter()
         r = function(var).data
@@ -223,19 +247,18 @@ def profile_once(paths: str, variable: str, chunks: Dict[str, int], function, mf
 
     total_end = time.perf_counter()
 
-    results['time_total'] = total_end - total_start
-    results['time_open'] = open_end - open_start
-    results['time_function'] = func_end - func_start
-    results['time_optimize'] = opt_end - opt_start
-    results['time_load'] = load_end - load_start
-    results['chunks'] = chunks
-    results['nchunks_in'] = chunks_in
-    results['nchunks_out'] = chunks_out
-    results['chunksize_in'] = chunksize_in
-    results['chunksize_out'] = chunksize
-    results['tasks_in'] = tasks_in
-    results['tasks_out'] = tasks
-    results['tasks_optimized'] = tasks_opt
+    results["time_total"] = total_end - total_start
+    results["time_open"] = open_end - open_start
+    results["time_function"] = func_end - func_start
+    results["time_optimize"] = opt_end - opt_start
+    results["time_load"] = load_end - load_start
+    results["chunks"] = chunks
+    results["nchunks_in"] = chunks_in
+    results["nchunks_out"] = chunks_out
+    results["chunksize_in"] = chunksize_in
+    results["chunksize_out"] = chunksize
+    results["tasks_in"] = tasks_in
+    results["tasks_out"] = tasks
+    results["tasks_optimized"] = tasks_opt
 
     return results
-
