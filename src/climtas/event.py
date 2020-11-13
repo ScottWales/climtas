@@ -27,6 +27,7 @@ import xarray
 from tqdm.auto import tqdm
 import typing as T
 import sparse
+from .helpers import map_blocks_to_delayed
 
 
 def find_events(da: xarray.DataArray, min_duration: int = 1) -> pandas.DataFrame:
@@ -56,6 +57,35 @@ def find_events(da: xarray.DataArray, min_duration: int = 1) -> pandas.DataFrame
         as an 'event_duration' column
     """
 
+    if not hasattr(da, "chunks") or da.chunks is None:
+        events = find_events_block(da, min_duration=min_duration, offset=(0,) * da.ndim)
+
+    else:
+        events_map = map_blocks_to_delayed(
+            da, find_events_block, min_duration=min_duration
+        )
+
+        events_map = dask.compute(events_map)[0]
+
+        events = join_events([events for offset, events in events_map])
+
+    # Final cleanup of events at the start/end of chunks
+    return events[events.event_duration >= min_duration]
+
+
+def find_events_block(
+    da: xarray.DataArray, offset: T.Iterable[int], min_duration: int = 1
+) -> pandas.DataFrame:
+    """Find 'events' in a section of a DataArray
+
+    See :func:`find_events`
+
+    Intended to run on a Dask block, with the results from each block merged.
+
+    If an event is active at the first or last timestep it is returned
+    regardless of its duration, so it can be joined with neighbours
+    """
+
     duration = numpy.atleast_1d(numpy.zeros_like(da.isel(time=0), dtype="i4"))
 
     columns = ["time", *[d for d in da.dims if d != "time"], "event_duration"]
@@ -81,9 +111,20 @@ def find_events(da: xarray.DataArray, min_duration: int = 1) -> pandas.DataFrame
             ).T
 
         df = pandas.DataFrame(data=data, columns=columns)
-        records.append(df[df.event_duration >= min_duration])
 
-    for t in tqdm(range(da.sizes["time"])):
+        # Add an event if:
+        #    * duration >= min_duration
+        #    * start_times == 0
+        #    * t == da.sizes['time']
+
+        if t == da.sizes["time"]:
+            records.append(df)
+        else:
+            records.append(
+                df[numpy.logical_or(df.event_duration >= min_duration, df.time == 0)]
+            )
+
+    for t in range(da.sizes["time"]):
         current_step = numpy.atleast_1d(
             numpy.take(da.data, t, axis=da.get_axis_num("time"))
         )
@@ -103,7 +144,15 @@ def find_events(da: xarray.DataArray, min_duration: int = 1) -> pandas.DataFrame
     t += 1
     add_events(duration > 0)
 
-    return pandas.concat(records, ignore_index=True)
+    if len(records) > 0:
+        result = pandas.concat(records, ignore_index=True)
+    else:
+        result = pandas.DataFrame(None, columns=columns)
+
+    for d, off in zip(da.dims, offset):
+        result[d] += off
+
+    return result
 
 
 def map_events(
@@ -344,3 +393,56 @@ def event_da(
 
     # Use the input data's coordinates
     return xarray.DataArray(dense, coords=da.coords)
+
+
+def join_events(events: T.List[pandas.DataFrame]) -> pandas.DataFrame:
+    """
+    Join consecutive events in multiple dataframes
+
+    The returned events will be in an arbitrary order, the index may not match
+    entries from the input dataframes.
+
+    >>> events = [
+    ...    pandas.DataFrame([[1, 2]], columns=["time", "event_duration"]),
+    ...    pandas.DataFrame([[3, 1]], columns=["time", "event_duration"]),
+    ... ]
+
+    >>> join_events(events)
+       time  event_duration
+    0     1               3
+
+    Args:
+        events: List of results from :func:`find_events`
+
+    Returns:
+        :obj:`pandas.DataFrame` where results that end when the next event
+        starts are joined together
+    """
+
+    df = pandas.concat(events)
+
+    if len(df.columns) == 2:
+        return _single_gridpoint_join(df)
+
+    spatial_dims = list(df.columns[1:-1])
+    return df.groupby(spatial_dims, sort=False).apply(_single_gridpoint_join)
+
+
+def _single_gridpoint_join(df: pandas.DataFrame) -> pandas.DataFrame:
+    """
+    Join events on a single gridpoint
+    """
+
+    i_start = 0
+
+    for i in range(1, df.shape[0]):
+        last_end = df.iloc[i_start].time + df.iloc[i_start].event_duration
+
+        if last_end == df.iloc[i].time:
+            # Last event ends when this one starts, merge
+            df.iloc[i_start].event_duration += df.iloc[i].event_duration
+            df.iloc[i].event_duration = 0
+        else:
+            i_start = i
+
+    return df[df.event_duration > 0]

@@ -16,12 +16,79 @@
 
 import numpy
 import dask
+import dask.delayed
 import xarray
+import itertools
+import typing as T
 
 """Helper functions
 
 These functions are low-level, and mainly intended for internal use
 """
+
+
+def map_blocks_to_delayed(
+    da: xarray.DataArray, func,
+    *args, **kwargs,
+) -> T.List[T.Tuple[T.List[int], T.Any]]:
+    """
+    Run some function 'func' on each dask chunk of 'da'
+
+    The function is called like `func(da_block, offset=offset)` - `da_block` the chunk
+    to work on, with coordinates from `da`; and `offset`, the location of
+    `block` within `da`.
+
+    The function is wrapped as a :obj:`dask.delayed`, :func:`chunk_map` returns
+    a list of (offset, delayed result) for each chunk of `da`.
+
+    If you're wanting to convert the results back into an array, see
+    :func:`xarray.map_blocks` or :func:`dask.array.map_blocks`
+
+    >>> def func(da_chunk, offset):
+    ...    return da_chunk.mean().values
+
+    >>> da = xarray.DataArray(numpy.eye(10), dims=['x','y'])
+    >>> da = da.chunk({'x': 5})
+
+    >>> results = map_blocks_to_delayed(da, func)
+    >>> dask.compute(results)
+    ([([0, 0], array(0.1)), ([5, 0], array(0.1))],)
+
+    Args:
+        da: Input DataArray
+        func: Function to run
+        *args, **kwargs: Passed to func
+
+    Returns:
+        List of tuples with the chunk offset in `da` and a delayed result of
+        running `func` on that chunk
+    """
+    data = da.data
+
+    offsets = []
+    block_id = []
+    for i in range(da.ndim):
+        chunks = data.chunks[i]
+        block_id.append(range(len(chunks)))
+        offsets.append(numpy.cumsum([0, *chunks[:-1]]))
+
+    results = []
+    for chunk in itertools.product(*block_id):
+        offset = [offsets[d][chunk[d]] for d in range(da.ndim)]
+        block = data.blocks[chunk]
+
+        coords = {
+            da.dims[d]: da.coords[da.dims[d]][offset[d] : offset[d] + block.shape[d]]
+            for d in range(da.ndim)
+        }
+
+        da_block = xarray.DataArray(block, dims=da.dims, coords=coords, name=da.name, attrs=da.attrs)
+
+        result = func(da_block, *args, offset=offset, **kwargs)
+
+        results.append((offset, result))
+
+    return results
 
 
 def chunk_count(da: xarray.DataArray) -> float:

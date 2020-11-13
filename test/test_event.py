@@ -17,6 +17,7 @@
 from climtas.event import *
 
 import xarray
+import numpy
 
 
 def test_find_events():
@@ -93,3 +94,60 @@ def test_atleastn():
     da = da.chunk({"x": 2})
     filtered = atleastn(da.where(da > 0), 3)
     numpy.testing.assert_array_equal(filtered, expect)
+
+
+def test_find_events_dask():
+    da = xarray.DataArray(
+        [[0, 1, 1, 1, 0], [1, 1, 1, 1, 0], [0, 0, 0, 1, 1]], dims=["x", "time"]
+    )
+
+    da_dask = da.chunk({"x": 1, "time": 3})
+    events = find_events(da_dask > 0, min_duration=3)
+
+    # Results are t, x, length
+    numpy.testing.assert_array_equal(events.to_numpy(), [[1, 0, 3], [0, 1, 4]])
+
+
+def test_find_events_block():
+    # find_events_block works like find_events, but adds a offset to the coordinates
+    da = xarray.DataArray(
+        [[0, 1, 1, 1, 0], [1, 1, 1, 1, 0], [0, 0, 0, 0, 0]], dims=["x", "time"]
+    )
+
+    da_block = da[1:, 2:]
+
+    events = find_events_block(da_block > 0, min_duration=3, offset=(1, 2))
+
+    # Results are t, x, length
+    numpy.testing.assert_array_equal(events.to_numpy(), [[2, 1, 2]])
+
+    da_block = da[0, :3]
+    events = find_events_block(da_block > 0, min_duration=3, offset=(0,))
+
+    numpy.testing.assert_array_equal(events.to_numpy(), [[1, 2]])
+
+    da_block = da[2, :]
+    events = find_events_block(da_block > 0, min_duration=3, offset=(0,))
+
+    numpy.testing.assert_array_equal(events.shape, (0, 2))
+
+
+def test_join_events():
+    events = [
+        pandas.DataFrame([[1, 2]], columns=["time", "event_duration"]),
+        pandas.DataFrame([[3, 3]], columns=["time", "event_duration"]),
+        pandas.DataFrame([[6, 1]], columns=["time", "event_duration"]),
+    ]
+
+    joined = join_events(events)
+
+    numpy.testing.assert_array_equal(joined.to_numpy(), [[1, 6]])
+
+    events = [
+        pandas.DataFrame([[1, 0, 2]], columns=["time", "x", "event_duration"]),
+        pandas.DataFrame([[3, 0, 1]], columns=["time", "x", "event_duration"]),
+    ]
+
+    joined = join_events(events)
+
+    numpy.testing.assert_array_equal(joined.to_numpy(), [[1, 0, 3]])
