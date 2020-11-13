@@ -151,3 +151,15 @@ def test_join_events():
     joined = join_events(events)
 
     numpy.testing.assert_array_equal(joined.to_numpy(), [[1, 0, 3]])
+
+    events = [
+        pandas.DataFrame([[1, 0, 2]], columns=["time", "x", "event_duration"]),
+        pandas.DataFrame([[3, 0, 1]], columns=["time", "x", "event_duration"]),
+        pandas.DataFrame([[1, 1, 2]], columns=["time", "x", "event_duration"]),
+        pandas.DataFrame([[3, 1, 1]], columns=["time", "x", "event_duration"]),
+    ]
+    offsets = [[0, 0], [3, 0], [0, 1], [3, 1]]
+
+    joined = join_events(events, offsets=offsets, dims=["time", "x"])
+
+    numpy.testing.assert_array_equal(joined.to_numpy(), [[1, 0, 3], [1, 1, 3]])

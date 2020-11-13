@@ -51,6 +51,9 @@ def map_blocks_to_delayed(
     >>> da = da.chunk({'x': 5})
 
     >>> results = map_blocks_to_delayed(da, func)
+    >>> results #doctest: +ELLIPSIS
+    [([0, 0], Delayed(...)), ([5, 0], Delayed(...))]
+
     >>> dask.compute(results)
     ([([0, 0], array(0.1)), ([5, 0], array(0.1))],)
 
@@ -84,7 +87,7 @@ def map_blocks_to_delayed(
 
         da_block = xarray.DataArray(block, dims=da.dims, coords=coords, name=da.name, attrs=da.attrs)
 
-        result = func(da_block, *args, offset=offset, **kwargs)
+        result = dask.delayed(func)(da_block, *args, offset=offset, **kwargs)
 
         results.append((offset, result))
 

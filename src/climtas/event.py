@@ -30,7 +30,9 @@ import sparse
 from .helpers import map_blocks_to_delayed
 
 
-def find_events(da: xarray.DataArray, min_duration: int = 1) -> pandas.DataFrame:
+def find_events(
+    da: xarray.DataArray, min_duration: int = 1, use_dask: bool = None
+) -> pandas.DataFrame:
     """Find 'events' in a DataArray mask
 
     Events are defined as being active when the array value is truthy. You
@@ -45,6 +47,10 @@ def find_events(da: xarray.DataArray, min_duration: int = 1) -> pandas.DataFrame
 
     It's assumed that events are reasonably sparse for large arrays
 
+    If `use_dask` is True or `use_dask` is None and the source dataset is only chunked
+    horizontally then events will be searched for in each Dask chunk and the
+    results aggregated afterward.
+
     Args:
         da (:class:`xarray.DataArray`): Input mask, valid when an event is
             active. Must have a 'time' dimension, dtype is expected to be bool
@@ -57,7 +63,16 @@ def find_events(da: xarray.DataArray, min_duration: int = 1) -> pandas.DataFrame
         as an 'event_duration' column
     """
 
-    if not hasattr(da, "chunks") or da.chunks is None:
+    chunks = getattr(da, "chunks", None)
+
+    if use_dask is None and chunks is not None:
+        # Decide whether to apply on blocks
+        time_ax = da.get_axis_num("time")
+
+        if len(chunks[time_ax]) > 1:
+            use_dask = False
+
+    if chunks is None or use_dask is False:
         events = find_events_block(da, min_duration=min_duration, offset=(0,) * da.ndim)
 
     else:
@@ -67,7 +82,11 @@ def find_events(da: xarray.DataArray, min_duration: int = 1) -> pandas.DataFrame
 
         events_map = dask.compute(events_map)[0]
 
-        events = join_events([events for offset, events in events_map])
+        events = join_events(
+            [events for offset, events in events_map],
+            offsets=[offset for offset, events in events_map],
+            dims=da.dims,
+        )
 
     # Final cleanup of events at the start/end of chunks
     return events[events.event_duration >= min_duration]
@@ -395,7 +414,11 @@ def event_da(
     return xarray.DataArray(dense, coords=da.coords)
 
 
-def join_events(events: T.List[pandas.DataFrame]) -> pandas.DataFrame:
+def join_events(
+    events: T.List[pandas.DataFrame],
+    offsets: T.List[T.List[int]] = None,
+    dims: T.Tuple[T.Hashable, ...] = None,
+) -> pandas.DataFrame:
     """
     Join consecutive events in multiple dataframes
 
@@ -419,12 +442,32 @@ def join_events(events: T.List[pandas.DataFrame]) -> pandas.DataFrame:
         starts are joined together
     """
 
+    if offsets is not None:
+        # Join like offsets
+        if dims is None:
+            raise Exception("Must supply dims with offsets")
+
+        df = pandas.DataFrame(offsets, columns=dims)
+        df["events"] = events
+
+        results = []
+
+        spatial_dims = [d for d in dims if d != "time"]
+
+        for k, g in df.groupby(spatial_dims, sort=False):
+            results.append(dask.delayed(join_events)(g.events.values))
+
+        results = dask.compute(results)[0]
+
+        return pandas.concat(results, ignore_index=True)
+
     df = pandas.concat(events)
 
     if len(df.columns) == 2:
         return _single_gridpoint_join(df)
 
-    spatial_dims = list(df.columns[1:-1])
+    spatial_dims = list(events[0].columns[1:-1])
+
     return df.groupby(spatial_dims, sort=False).apply(_single_gridpoint_join)
 
 
@@ -446,3 +489,17 @@ def _single_gridpoint_join(df: pandas.DataFrame) -> pandas.DataFrame:
             i_start = i
 
     return df[df.event_duration > 0]
+
+
+def event_values(da: xarray.DataArray, events: pandas.DataFrame):
+    """
+    Gets the values from da where an event is active
+    """
+
+    return event_values_block(da, events, offset=(0,) * da.ndims)
+
+
+def event_values_block(
+    da: xarray.DataArray, events: pandas.DataFrame, offset: T.Iterable[int]
+):
+    pass
