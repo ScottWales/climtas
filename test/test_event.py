@@ -163,3 +163,47 @@ def test_join_events():
     joined = join_events(events, offsets=offsets, dims=["time", "x"])
 
     numpy.testing.assert_array_equal(joined.to_numpy(), [[1, 0, 3], [1, 1, 3]])
+
+
+def test_event_values():
+    da = xarray.DataArray([[0, 1, 3, 2, 0]], dims=["x", "time"])
+    events = find_events(da > 0)
+
+    values = event_values(da, events)
+
+    numpy.testing.assert_array_equal(
+        values.to_numpy(), [[1, 0, 1], [2, 0, 3], [3, 0, 2]]
+    )
+
+    da_dask = da.chunk({"time": 3})
+
+    values = event_values(da_dask, events)
+
+    numpy.testing.assert_array_equal(
+        values.to_numpy(), [[1, 0, 1], [2, 0, 3], [3, 0, 2]]
+    )
+
+    da = xarray.DataArray([[0, 0, 3, 2, 0], [9, 8, 0, 0, 7]], dims=["x", "time"])
+    da_dask = da.chunk({"time": 3, "x": 1})
+
+    events = find_events(da > 0)
+    values = event_values(da, events)
+    numpy.testing.assert_array_equal(
+        values.to_numpy(),
+        [[0, 0, 9], [1, 0, 8], [2, 1, 3], [3, 1, 2], [4, 2, 7]],
+    )
+
+
+def test_event_values_dask_nd():
+    da = xarray.DataArray([[0, 0, 3, 2, 0], [9, 8, 0, 0, 7]], dims=["x", "time"])
+    da_dask = da.chunk({"time": 3, "x": 1})
+
+    events = find_events(da > 0)
+    values = event_values(da_dask, events)
+
+    values = values.sort_values(["event_id", "time"])
+
+    numpy.testing.assert_array_equal(
+        values.to_numpy(),
+        [[0, 0, 9], [1, 0, 8], [2, 1, 3], [3, 1, 2], [4, 2, 7]],
+    )

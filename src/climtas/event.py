@@ -496,10 +496,91 @@ def event_values(da: xarray.DataArray, events: pandas.DataFrame):
     Gets the values from da where an event is active
     """
 
-    return event_values_block(da, events, offset=(0,) * da.ndims)
+    chunks = getattr(da, "chunks", None)
+
+    if chunks is None:
+        return event_values_block(da, events, offset=(0,) * da.ndim)
+
+    events_map = map_blocks_to_delayed(
+        da,
+        event_values_block,
+        events=events,
+    )
+
+    events_map = dask.compute(events_map)[0]
+
+    return pandas.concat([e for o, e in events_map])
 
 
 def event_values_block(
     da: xarray.DataArray, events: pandas.DataFrame, offset: T.Iterable[int]
 ):
-    pass
+    """
+    Gets the values from da where an event is active
+    """
+
+    event_id = -1 * numpy.ones(da.isel(time=0).shape, dtype="i")
+    event_duration = -1 * numpy.ones(da.isel(time=0).shape, dtype="i")
+
+    times = []
+    event_ids = []
+    event_values = []
+
+    t_offset = offset[da.get_axis_num("time")]
+
+    # Events that started before this block
+    active_events = events[
+        numpy.logical_and(
+            events["time"] < t_offset,
+            events["time"] + events["event_duration"] >= t_offset,
+        )
+    ]
+    indices = [active_events[c] for c in active_events.columns[1:-1]]
+    event_id[indices] = active_events.index.values
+    event_duration[indices] = (
+        active_events.time + active_events.event_duration - t_offset
+    )
+
+    for t in range(da.sizes["time"]):
+        # Add newly active events
+        active_events = events[events["time"] == t + t_offset]
+
+        # Filter to only events in this block
+        for c in active_events.columns[1:-1]:
+            ax = da.get_axis_num(c)
+            off = offset[ax]
+            size = da.shape[ax]
+            active_events = active_events[
+                numpy.logical_and(
+                    off <= active_events[c], active_events[c] < (off + size)
+                )
+            ]
+
+        # Indices in the block of current events
+        indices = [
+            active_events[c] - offset[da.get_axis_num(c)]
+            for c in active_events.columns[1:-1]
+        ]
+
+        # Set values at the current events
+        event_id[indices] = active_events.index.values
+        event_duration[indices] = active_events.event_duration
+
+        # Currently active coordinates
+        indices = numpy.where(event_duration > 0)
+
+        # Get values
+        event_ids.append(event_id[indices])
+        event_values.append(da.isel(time=t)[indices])
+        times.append(numpy.ones_like(event_ids[-1]) * (t + t_offset))
+
+        # Decrease durations
+        event_duration -= 1
+
+    times = numpy.concatenate(times)
+    event_ids = numpy.concatenate(event_ids)
+    event_values = numpy.concatenate(event_values)
+
+    return pandas.DataFrame(
+        [times, event_ids, event_values], index=["time", "event_id", "value"]
+    ).T
