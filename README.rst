@@ -27,6 +27,9 @@ Topics
 
 Example notebook: `ERA-5 90th percentile climatology <https://nbviewer.jupyter.org/github/ScottWales/climtas/blob/master/notebooks/era5-heatwave.ipynb>`_
 
+.. image:: benchmark/climatology/climatology_walltime.png
+   :alt: Walltime of Climtas climatology vs xarray
+
 .. code-block:: python
 
     >>> import numpy; import pandas; import xarray
