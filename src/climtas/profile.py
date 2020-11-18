@@ -59,6 +59,13 @@ import dask
 import time
 import pandas
 import numpy
+import typing as T
+import datetime
+import os
+import csv
+import subprocess
+import json
+from . import __version__
 
 
 def benchmark(
@@ -261,3 +268,71 @@ def profile_once(
     results["tasks_optimized"] = tasks_opt
 
     return results
+
+
+class Timer:
+    def __init__(self, name):
+        self.starts = {}
+        self.stops = {}
+        self.chunks = {}
+        self.client = None
+        self.name = name
+
+    def mark(self, name: str) -> None:
+        if name not in self.starts:
+            self.starts[name] = time.perf_counter()
+        else:
+            self.stops[name] = time.perf_counter()
+
+    def times(self) -> T.Dict[str, float]:
+        return {k: self.stops[k] - v for k, v in self.starts.items()}
+
+    def record(self, file) -> None:
+        result = {
+            "name": self.name,
+            "run_date": datetime.datetime.now(),
+            "xarray_version": xarray.__version__,
+            "climtas_version": __version__,
+            "client_workers": len(self.client.cluster.workers),
+            "worker_threads": self.client.cluster.workers[0].nthreads,
+        }
+
+        result.update({"chunk_" + k: v for k, v in self.chunks.items()})
+
+        result.update(self.times())
+
+        result.update(self.pbs_info())
+
+        exists = os.path.exists(file)
+
+        with open(file, "a") as f:
+            writer = csv.DictWriter(f, result.keys())
+
+            if not exists:
+                writer.writeheader()
+
+            writer.writerow(result)
+
+    def pbs_info(self):
+        jobid = os.environ.get("PBS_JOBID", None)
+
+        if jobid is None:
+            return {"mem_request": None, "mem_used": None, "cpu_pct": None}
+
+        uqstat = subprocess.run(
+            ["/g/data/hh5/public/apps/nci_scripts/uqstat", "--format=json"],
+            stdout=subprocess.PIPE,
+            text=True,
+        )
+
+        uqstat.check_returncode()
+
+        j = json.loads(uqstat.stdout)
+
+        job_info = j[jobid]
+
+        return {
+            "mem_request": job_info["mem_request"],
+            "mem_used": job_info["mem_used"],
+            "cpu_pct": job_info["cpu_pct"],
+        }

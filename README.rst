@@ -23,9 +23,15 @@ especially for working in the time domain
 Topics
 ------
 
-* `Apply a function grouping by day of year, without massive numbers of dask chunks <https://climtas.readthedocs.io/en/latest/api.html#module-climtas.blocked>`_:
+`Apply a function grouping by day of year, without massive numbers of dask chunks <https://climtas.readthedocs.io/en/latest/api.html#module-climtas.blocked>`_
+~~~~
+
+Climtas' blocked resample and groupby operations use array reshaping, rather than Xarray's default slicing methods. This results in a much simpler and efficient Dask graph, at the cost of some restrictions to the data (the data must be regularly spaced and start/end on a resampling boundary)
 
 Example notebook: `ERA-5 90th percentile climatology <https://nbviewer.jupyter.org/github/ScottWales/climtas/blob/master/notebooks/era5-heatwave.ipynb>`_
+
+.. image:: benchmark/climatology/climatology_walltime.png
+   :alt: Walltime of Climtas climatology vs xarray
 
 .. code-block:: python
 
@@ -44,7 +50,10 @@ Example notebook: `ERA-5 90th percentile climatology <https://nbviewer.jupyter.o
 
 
 
-* `Find and apply a function to events <https://climtas.readthedocs.io/en/latest/api.html#module-climtas.event>`_:
+`Find and apply a function to events <https://climtas.readthedocs.io/en/latest/api.html#module-climtas.event>`_
+~~~~
+
+Climtas includes a number of parallelised building blocks for heatwave detection
 
 .. code-block:: python
 
@@ -57,7 +66,10 @@ Example notebook: `ERA-5 90th percentile climatology <https://nbviewer.jupyter.o
     0     1               3   97
     1     5               2   74
 
-* `Memory-saving write to NetCDF <https://climtas.readthedocs.io/en/latest/api.html#module-climtas.io>`_
+`Memory-saving write to NetCDF <https://climtas.readthedocs.io/en/latest/api.html#module-climtas.io>`_
+~~~~
+
+Climtas' throttled saver reduces memory usage, by limiting the number of Dask output chunks that get processed at one time
 
 Examples
 --------
