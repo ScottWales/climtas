@@ -11,4 +11,4 @@ conda activate dev
 
 set -eu
 
-python bench_xarray.py
+python bench_climtas.py
