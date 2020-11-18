@@ -50,8 +50,10 @@ Example notebook: `ERA-5 90th percentile climatology <https://nbviewer.jupyter.o
 
 
 
-`Find and apply a function to events <https://climtas.readthedocs.io/en/latest/api.html#module-climtas.event>`_:
+`Find and apply a function to events <https://climtas.readthedocs.io/en/latest/api.html#module-climtas.event>`_
 ~~~~
+
+Climtas includes a number of parallelised building blocks for heatwave detection
 
 .. code-block:: python
 
@@ -66,6 +68,8 @@ Example notebook: `ERA-5 90th percentile climatology <https://nbviewer.jupyter.o
 
 `Memory-saving write to NetCDF <https://climtas.readthedocs.io/en/latest/api.html#module-climtas.io>`_
 ~~~~
+
+Climtas' throttled saver reduces memory usage, by limiting the number of Dask output chunks that get processed at one time
 
 Examples
 --------
