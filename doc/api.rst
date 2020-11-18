@@ -22,3 +22,8 @@ climtas.regrid
 --------------
 .. automodule:: climtas.regrid
    :members:
+
+climtas.profile
+---------------
+.. automodule:: climtas.profile
+   :members:

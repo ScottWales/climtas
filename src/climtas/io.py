@@ -117,6 +117,8 @@ def to_netcdf_throttled(
         except ValueError:
             # Found a numpy array or similar, so comparison fails
             pass
+        except IndexError:
+            pass
         new_graph[k] = v
 
     if show_progress:
