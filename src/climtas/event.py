@@ -528,13 +528,14 @@ def event_values_block(
 
     t_offset = offset[da.get_axis_num("time")]
 
+    events = filter_block(da, events, offset)
+
     # Events that started before this block
     active_events = events[
-        numpy.logical_and(
-            events["time"] < t_offset,
-            events["time"] + events["event_duration"] >= t_offset,
-        )
+        (events["time"] < t_offset)
+        & (events["time"] + events["event_duration"] >= t_offset)
     ]
+
     indices = [active_events[c] for c in active_events.columns[1:-1]]
     event_id[indices] = active_events.index.values
     event_duration[indices] = (
@@ -584,3 +585,16 @@ def event_values_block(
     return pandas.DataFrame(
         [times, event_ids, event_values], index=["time", "event_id", "value"]
     ).T
+
+
+def filter_block(da, events, offset):
+    """
+    Filters events to within the current block horizontally
+    """
+    for i, d in enumerate(da.dims):
+        if d != "time":
+            events = events[
+                (offset[i] <= events[d]) & (events[d] < offset[i] + da.shape[i])
+            ]
+
+    return events

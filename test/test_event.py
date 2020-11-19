@@ -199,6 +199,9 @@ def test_event_values_dask_nd():
     da_dask = da.chunk({"time": 3, "x": 1})
 
     events = find_events(da > 0)
+
+    values = event_values_block(da_dask[1:, 3:], events, offset=(1, 3))
+
     values = event_values(da_dask, events)
 
     values = values.sort_values(["event_id", "time"])
