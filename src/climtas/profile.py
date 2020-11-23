@@ -283,6 +283,7 @@ class Timer:
             self.starts[name] = time.perf_counter()
         else:
             self.stops[name] = time.perf_counter()
+            print(name, self.stops[name] - self.starts[name])
 
     def times(self) -> T.Dict[str, float]:
         return {k: self.stops[k] - v for k, v in self.starts.items()}

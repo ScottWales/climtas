@@ -6,7 +6,7 @@ function run(){
     subt=climtas
     ncpus=$1
 
-    qsub -l ncpus=$ncpus,mem=$(( ncpus * 4 ))gb -o $TMPDIR run_${subt}.sh
+    qsub -l ncpus=$ncpus,mem=$(( ncpus * 4 ))gb -o log run_${subt}.sh
 }
 
 run 4

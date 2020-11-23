@@ -1,0 +1,2 @@
+name,run_date,xarray_version,climtas_version,client_workers,worker_threads,chunk_time,chunk_latitude,chunk_longitude,total,open_mfdataset,resample,rolling,groupby,to_netcdf,event_values,event_stats,mem_request,mem_used,cpu_pct
+5 year 100x100 horiz,2020-11-23 15:29:33.227773,0.16.1,0.2.7+13.gb3cf596.dirty,4,1,-1,91,180,148.14112189295702,4.545131552033126,0.0038252610247582197,0.03481582598760724,0.017845744965597987,20.41279524494894,5.393369118915871,0.08992019784636796,17179869184,4118364160.0,17.0212765957

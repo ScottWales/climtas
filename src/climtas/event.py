@@ -513,11 +513,15 @@ def event_values(da: xarray.DataArray, events: pandas.DataFrame):
 
 
 def event_values_block(
-    da: xarray.DataArray, events: pandas.DataFrame, offset: T.Iterable[int]
+    da: xarray.DataArray,
+    events: pandas.DataFrame,
+    offset: T.Union[T.Iterable[int], T.Dict[T.Hashable, int]],
 ):
     """
     Gets the values from da where an event is active
     """
+
+    da = da.load()
 
     event_id = -1 * numpy.ones(da.isel(time=0).shape, dtype="i")
     event_duration = -1 * numpy.ones(da.isel(time=0).shape, dtype="i")
@@ -526,7 +530,10 @@ def event_values_block(
     event_ids = []
     event_values = []
 
-    t_offset = offset[da.get_axis_num("time")]
+    if not isinstance(offset, dict):
+        offset = dict(zip(da.dims, offset))
+
+    t_offset = offset["time"]
 
     events = filter_block(da, events, offset)
 
@@ -536,7 +543,7 @@ def event_values_block(
         & (events["time"] + events["event_duration"] >= t_offset)
     ]
 
-    indices = [active_events[c] for c in active_events.columns[1:-1]]
+    indices = tuple([active_events[c] - offset[c] for c in active_events.columns[1:-1]])
     event_id[indices] = active_events.index.values
     event_duration[indices] = (
         active_events.time + active_events.event_duration - t_offset
@@ -546,22 +553,10 @@ def event_values_block(
         # Add newly active events
         active_events = events[events["time"] == t + t_offset]
 
-        # Filter to only events in this block
-        for c in active_events.columns[1:-1]:
-            ax = da.get_axis_num(c)
-            off = offset[ax]
-            size = da.shape[ax]
-            active_events = active_events[
-                numpy.logical_and(
-                    off <= active_events[c], active_events[c] < (off + size)
-                )
-            ]
-
         # Indices in the block of current events
-        indices = [
-            active_events[c] - offset[da.get_axis_num(c)]
-            for c in active_events.columns[1:-1]
-        ]
+        indices = tuple(
+            [active_events[c] - offset[c] for c in active_events.columns[1:-1]]
+        )
 
         # Set values at the current events
         event_id[indices] = active_events.index.values
@@ -572,7 +567,7 @@ def event_values_block(
 
         # Get values
         event_ids.append(event_id[indices])
-        event_values.append(da.isel(time=t)[indices])
+        event_values.append(da.isel(time=t).values[indices])
         times.append(numpy.ones_like(event_ids[-1]) * (t + t_offset))
 
         # Decrease durations
@@ -580,6 +575,7 @@ def event_values_block(
 
     times = numpy.concatenate(times)
     event_ids = numpy.concatenate(event_ids)
+
     event_values = numpy.concatenate(event_values)
 
     return pandas.DataFrame(
@@ -587,14 +583,16 @@ def event_values_block(
     ).T
 
 
-def filter_block(da, events, offset):
+def filter_block(
+    da: xarray.DataArray, events: pandas.DataFrame, offset: T.Dict[T.Hashable, int]
+) -> pandas.DataFrame:
     """
     Filters events to within the current block horizontally
     """
     for i, d in enumerate(da.dims):
         if d != "time":
             events = events[
-                (offset[i] <= events[d]) & (events[d] < offset[i] + da.shape[i])
+                (offset[d] <= events[d]) & (events[d] < offset[d] + da.shape[i])
             ]
 
     return events

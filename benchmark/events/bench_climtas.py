@@ -10,12 +10,9 @@ import climtas.nci
 
 
 def get_threshold(t, da, time_range):
-    t.mark("resample")
-    da_daily = climtas.blocked_resample(da, time=24).mean()
-    t.mark("resample")
 
     t.mark("rolling")
-    da_smooth = da_daily.rolling(time=5).mean()
+    da_smooth = da.rolling(time=5).mean()
     t.mark("rolling")
 
     da_smooth = da_smooth.sel(time=time_range)
@@ -57,18 +54,32 @@ def main():
     t.mark("open_mfdataset")
 
     t2m = t2m.sel(time=slice("2014", "2020"))[:, :100, :100]
+
+    t.mark("resample")
+    t2m_daily = climtas.blocked_resample(t2m, time=24).mean()
+    t.mark("resample")
+
     time_range = slice("2015", "2019")
 
-    threshold = get_threshold(t, t2m, time_range)
+    threshold = get_threshold(t, t2m_daily, time_range)
 
-    events = climtas.event.find_events(t2m.sel(time="2015") > threshold, min_duration=5)
+    sample = t2m_daily.sel(time=slice("2015", "2015"))
 
-    stats = climtas.event.map_events(t2m.sel(time="2015"), events, stats_func)
-    t.mark("event_map")
+    events = climtas.event.find_events(
+        sample.groupby("time.dayofyear") > threshold, min_duration=5
+    )
+
+    t.mark("event_values")
+    values = climtas.event.event_values(sample, events)
+    t.mark("event_values")
+
+    t.mark("event_stats")
+    stats = values.groupby("event_id").mean()
+    t.mark("event_stats")
 
     t.mark("total")
 
-    t.record("climatology_climtas.csv")
+    t.record("events_climtas.csv")
 
 
 if __name__ == "__main__":
