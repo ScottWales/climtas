@@ -277,6 +277,8 @@ class Timer:
         self.chunks = {}
         self.client = None
         self.name = name
+        self.total_start = time.perf_counter()
+        self.excluded = 0
 
     def mark(self, name: str) -> None:
         if name not in self.starts:
@@ -285,10 +287,18 @@ class Timer:
             self.stops[name] = time.perf_counter()
             print(name, self.stops[name] - self.starts[name])
 
+    def exclude(self, name: str) -> None:
+        self.mark(name)
+
+        if name in self.stops:
+            self.excluded += self.stops[name] - self.starts[name]
+
     def times(self) -> T.Dict[str, float]:
         return {k: self.stops[k] - v for k, v in self.starts.items()}
 
     def record(self, file) -> None:
+        total = time.perf_counter() - self.total_start - self.excluded
+
         result = {
             "name": self.name,
             "run_date": datetime.datetime.now(),
@@ -296,6 +306,7 @@ class Timer:
             "climtas_version": __version__,
             "client_workers": len(self.client.cluster.workers),
             "worker_threads": self.client.cluster.workers[0].nthreads,
+            "total": total,
         }
 
         result.update({"chunk_" + k: v for k, v in self.chunks.items()})

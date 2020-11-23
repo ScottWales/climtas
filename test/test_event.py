@@ -102,7 +102,7 @@ def test_find_events_dask():
     )
 
     da_dask = da.chunk({"x": 1, "time": 3})
-    events = find_events(da_dask > 0, min_duration=3)
+    events = find_events(da_dask > 0, min_duration=3, use_dask=True)
 
     # Results are t, x, length
     numpy.testing.assert_array_equal(events.to_numpy(), [[1, 0, 3], [0, 1, 4]])
@@ -146,11 +146,12 @@ def test_join_events():
     events = [
         pandas.DataFrame([[1, 0, 2]], columns=["time", "x", "event_duration"]),
         pandas.DataFrame([[3, 0, 1]], columns=["time", "x", "event_duration"]),
+        pandas.DataFrame([[5, 0, 1]], columns=["time", "x", "event_duration"]),
     ]
 
     joined = join_events(events)
 
-    numpy.testing.assert_array_equal(joined.to_numpy(), [[1, 0, 3]])
+    numpy.testing.assert_array_equal(joined.to_numpy(), [[1, 0, 3], [5, 0, 1]])
 
     events = [
         pandas.DataFrame([[1, 0, 2]], columns=["time", "x", "event_duration"]),
@@ -229,5 +230,5 @@ def test_event_values_dask_start():
 
     da_dask = da.chunk({"time": 5, "x": 2})
 
-    events = find_events(da_dask > 0.4)
+    events = find_events(da_dask > 0.4, use_dask=True)
     values = event_values(da_dask, events)

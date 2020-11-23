@@ -10,31 +10,26 @@ import climtas.nci
 
 
 def get_threshold(t, da, time_range):
+    thresh_path = "/scratch/w35/saw562/tmp/climtas_benchmark_threshold.nc"
+    if os.path.exists(thresh_path):
+        threshold = xarray.open_dataarray(thresh_path).load()
+        return threshold
 
-    t.mark("rolling")
     da_smooth = da.rolling(time=5).mean()
-    t.mark("rolling")
-
     da_smooth = da_smooth.sel(time=time_range)
 
-    t.mark("groupby")
     da_clim = climtas.blocked_groupby(da_smooth, time="dayofyear").percentile(90)
-    t.mark("groupby")
 
     da_clim.name = "climatology"
 
-    with tempfile.NamedTemporaryFile("wb") as f:
-        t.mark("to_netcdf")
-        climtas.io.to_netcdf_throttled(da_clim, f.name)
-        threshold = xarray.open_dataarray(f.name).load()
-        t.mark("to_netcdf")
+    climtas.io.to_netcdf_throttled(da_clim, thresh_path)
+    threshold = xarray.open_dataarray(thresh_path).load()
 
     return threshold
 
 
 def main():
     t = climtas.profile.Timer("5 year 100x100 horiz")
-    t.mark("total")
     client = climtas.nci.GadiClient()
     t.client = client
 
@@ -61,13 +56,19 @@ def main():
 
     time_range = slice("2015", "2019")
 
+    t.exclude("threshold")
     threshold = get_threshold(t, t2m_daily, time_range)
+    t.exclude("threshold")
 
     sample = t2m_daily.sel(time=slice("2015", "2015"))
 
+    t.mark("find_events")
     events = climtas.event.find_events(
-        sample.groupby("time.dayofyear") > threshold, min_duration=5
+        sample.groupby("time.dayofyear") > threshold,
+        min_duration=5,
+        use_dask=True,
     )
+    t.mark("find_events")
 
     t.mark("event_values")
     values = climtas.event.event_values(sample, events)
@@ -76,8 +77,6 @@ def main():
     t.mark("event_stats")
     stats = values.groupby("event_id").mean()
     t.mark("event_stats")
-
-    t.mark("total")
 
     t.record("events_climtas.csv")
 

@@ -28,6 +28,7 @@ from tqdm.auto import tqdm
 import typing as T
 import sparse
 from .helpers import map_blocks_to_delayed
+import time
 
 
 def find_events(
@@ -104,6 +105,8 @@ def find_events_block(
     If an event is active at the first or last timestep it is returned
     regardless of its duration, so it can be joined with neighbours
     """
+
+    da = da.load()
 
     duration = numpy.atleast_1d(numpy.zeros_like(da.isel(time=0), dtype="i4"))
 
@@ -461,14 +464,19 @@ def join_events(
 
         return pandas.concat(results, ignore_index=True)
 
-    df = pandas.concat(events)
+    results = []
+    for i in range(0, len(events) - 1):
+        next_t0 = events[i + 1]["time"].min()
 
-    if len(df.columns) == 2:
-        return _single_gridpoint_join(df)
+        stop = events[i]["time"] + events[i]["event_duration"]
 
-    spatial_dims = list(events[0].columns[1:-1])
+        results.append(events[i][stop < next_t0])
 
-    return df.groupby(spatial_dims, sort=False).apply(_single_gridpoint_join)
+        events[i + 1] = _merge_join(events[i][stop >= next_t0], events[i + 1])
+
+    results.append(events[-1])
+
+    return pandas.concat(results)
 
 
 def _single_gridpoint_join(df: pandas.DataFrame) -> pandas.DataFrame:
@@ -489,6 +497,40 @@ def _single_gridpoint_join(df: pandas.DataFrame) -> pandas.DataFrame:
             i_start = i
 
     return df[df.event_duration > 0]
+
+
+def _merge_join(df_x: pandas.DataFrame, df_y: pandas.DataFrame) -> pandas.DataFrame:
+    """
+    Join events on time == time + event_duration
+    """
+
+    spatial_dims = list(df_x.columns[1:-1])
+
+    df_x = df_x.copy()
+    df_x["stop"] = df_x["time"] + df_x["event_duration"]
+
+    # First step of df_y
+    t0 = df_y["time"].min()
+
+    # Merge df_x with the first step from df_y
+    merged = df_x.merge(
+        df_y[df_y["time"] == t0],
+        left_on=["stop", *spatial_dims],
+        right_on=["time", *spatial_dims],
+        how="outer",
+    )
+
+    merged["time_x"].fillna(merged["time_y"], inplace=True, downcast="infer")
+    merged["event_duration_x"].fillna(0, inplace=True, downcast="infer")
+    merged["event_duration_y"].fillna(0, inplace=True, downcast="infer")
+
+    result = pandas.DataFrame()
+    result["time"] = merged["time_x"]
+    for d in spatial_dims:
+        result[d] = merged[d]
+    result["event_duration"] = merged["event_duration_x"] + merged["event_duration_y"]
+
+    return pandas.concat([result, df_y[df_y["time"] > t0]], ignore_index=True)
 
 
 def event_values(da: xarray.DataArray, events: pandas.DataFrame):
