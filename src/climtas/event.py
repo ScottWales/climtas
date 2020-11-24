@@ -169,7 +169,7 @@ def find_events_block(
     if len(records) > 0:
         result = pandas.concat(records, ignore_index=True)
     else:
-        result = pandas.DataFrame(None, columns=columns)
+        result = pandas.DataFrame(None, columns=columns, dtype="int64")
 
     for d, off in zip(da.dims, offset):
         result[d] += off
@@ -595,9 +595,12 @@ def event_values_block(
         # Add newly active events
         active_events = events[events["time"] == t + t_offset]
 
+        if active_events.size == 0:
+            continue
+
         # Indices in the block of current events
         indices = tuple(
-            [active_events[c] - offset[c] for c in active_events.columns[1:-1]]
+            [active_events[c].values - offset[c] for c in active_events.columns[1:-1]]
         )
 
         # Set values at the current events
@@ -615,14 +618,16 @@ def event_values_block(
         # Decrease durations
         event_duration -= 1
 
-    times = numpy.concatenate(times)
-    event_ids = numpy.concatenate(event_ids)
+    # times = numpy.concatenate(times)
+    # event_ids = numpy.concatenate(event_ids)
+    # event_values = numpy.concatenate(event_values)
 
-    event_values = numpy.concatenate(event_values)
+    if len(times) > 0:
+        result = numpy.block([times, event_ids, event_values])
+    else:
+        return None
 
-    return pandas.DataFrame(
-        [times, event_ids, event_values], index=["time", "event_id", "value"]
-    ).T
+    return pandas.DataFrame(result, index=["time", "event_id", "value"]).T
 
 
 def filter_block(
