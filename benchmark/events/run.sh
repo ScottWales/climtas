@@ -9,4 +9,7 @@ function run(){
     qsub -l ncpus=$ncpus,mem=$(( ncpus * 4 ))gb -o log run_${subt}.sh
 }
 
-run 2
+#run 2
+run 4
+run 8
+run 16

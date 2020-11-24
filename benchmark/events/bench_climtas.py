@@ -10,7 +10,7 @@ import climtas.nci
 
 
 def get_threshold(t, da, time_range):
-    thresh_path = "/scratch/w35/saw562/tmp/climtas_benchmark_threshold.nc"
+    thresh_path = f"/scratch/w35/saw562/tmp/climtas_benchmark_threshold.nc"
     if os.path.exists(thresh_path):
         threshold = xarray.open_dataarray(thresh_path).load()
         return threshold
@@ -29,7 +29,9 @@ def get_threshold(t, da, time_range):
 
 
 def main():
-    t = climtas.profile.Timer("5 year 100x100 horiz")
+    n = 400
+
+    t = climtas.profile.Timer(f"1 year {n}x{n} horiz")
     client = climtas.nci.GadiClient()
     t.client = client
 
@@ -48,7 +50,7 @@ def main():
     )["t2m"]
     t.mark("open_mfdataset")
 
-    t2m = t2m.sel(time=slice("2014", "2020"))[:, :100, :100]
+    t2m = t2m.sel(time=slice("2014", "2020"))
 
     t.mark("resample")
     t2m_daily = climtas.blocked_resample(t2m, time=24).mean()
@@ -60,7 +62,8 @@ def main():
     threshold = get_threshold(t, t2m_daily, time_range)
     t.exclude("threshold")
 
-    sample = t2m_daily.sel(time=slice("2015", "2015"))
+    sample = t2m_daily.sel(time=slice("2015", "2015"))[:, :n, :n]
+    threshold = threshold[:, :n, :n]
 
     t.mark("find_events")
     events = climtas.event.find_events(
@@ -78,7 +81,9 @@ def main():
     stats = values.groupby("event_id").mean()
     t.mark("event_stats")
 
-    t.record("events_climtas.csv")
+    t.record("results.csv")
+
+    client.close()
 
 
 if __name__ == "__main__":
