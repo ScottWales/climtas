@@ -1,5 +1,5 @@
 #!/bin/bash
-#PBS -l storage=gdata/ub4+gdata/hh5
+#PBS -l storage=gdata/rt52+gdata/hh5
 #PBS -l wd
 #PBS -l jobfs=100gb
 #PBS -l walltime=10:00

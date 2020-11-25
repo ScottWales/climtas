@@ -74,11 +74,13 @@ def find_events(
             use_dask = False
 
     if chunks is None or use_dask is False:
-        events = find_events_block(da, min_duration=min_duration, offset=(0,) * da.ndim)
+        events = find_events_block(
+            da, min_duration=min_duration, offset=(0,) * da.ndim, load=False
+        )
 
     else:
         events_map = map_blocks_to_delayed(
-            da, find_events_block, min_duration=min_duration
+            da, find_events_block, kwargs={"min_duration": min_duration}
         )
 
         events_map = dask.compute(events_map)[0]
@@ -94,7 +96,10 @@ def find_events(
 
 
 def find_events_block(
-    da: xarray.DataArray, offset: T.Iterable[int], min_duration: int = 1
+    da: xarray.DataArray,
+    offset: T.Iterable[int],
+    min_duration: int = 1,
+    load: bool = True,
 ) -> pandas.DataFrame:
     """Find 'events' in a section of a DataArray
 
@@ -106,7 +111,8 @@ def find_events_block(
     regardless of its duration, so it can be joined with neighbours
     """
 
-    da = da.load()
+    if load:
+        da = da.load()
 
     duration = numpy.atleast_1d(numpy.zeros_like(da.isel(time=0), dtype="i4"))
 
@@ -546,7 +552,7 @@ def event_values(da: xarray.DataArray, events: pandas.DataFrame):
     events_map = map_blocks_to_delayed(
         da,
         event_values_block,
-        events=events,
+        kwargs={"events": events},
     )
 
     events_map = dask.compute(events_map)[0]
@@ -558,12 +564,14 @@ def event_values_block(
     da: xarray.DataArray,
     events: pandas.DataFrame,
     offset: T.Union[T.Iterable[int], T.Dict[T.Hashable, int]],
+    load: bool = True,
 ):
     """
     Gets the values from da where an event is active
     """
 
-    da = da.load()
+    if load:
+        da = da.load()
 
     event_id = -1 * numpy.ones(da.isel(time=0).shape, dtype="i")
     event_duration = -1 * numpy.ones(da.isel(time=0).shape, dtype="i")
@@ -595,17 +603,19 @@ def event_values_block(
         # Add newly active events
         active_events = events[events["time"] == t + t_offset]
 
-        if active_events.size == 0:
-            continue
+        if active_events.size > 0:
 
-        # Indices in the block of current events
-        indices = tuple(
-            [active_events[c].values - offset[c] for c in active_events.columns[1:-1]]
-        )
+            # Indices in the block of current events
+            indices = tuple(
+                [
+                    active_events[c].values - offset[c]
+                    for c in active_events.columns[1:-1]
+                ]
+            )
 
-        # Set values at the current events
-        event_id[indices] = active_events.index.values
-        event_duration[indices] = active_events.event_duration
+            # Set values at the current events
+            event_id[indices] = active_events.index.values
+            event_duration[indices] = active_events.event_duration
 
         # Currently active coordinates
         indices = numpy.where(event_duration > 0)

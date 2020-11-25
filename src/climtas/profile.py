@@ -347,4 +347,5 @@ class Timer:
             "mem_request": job_info["mem_request"],
             "mem_used": job_info["mem_used"],
             "cpu_pct": job_info["cpu_pct"],
+            "hostname": os.environ["HOSTNAME"],
         }

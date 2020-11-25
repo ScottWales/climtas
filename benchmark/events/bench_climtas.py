@@ -40,7 +40,8 @@ def main():
 
     t.mark("open_mfdataset")
     t2m = xarray.open_mfdataset(
-        "/g/data/ub4/era5/netcdf/surface/t2m/*/t2m_era5_global_*.nc",
+        # "/g/data/ub4/era5/netcdf/surface/t2m/*/t2m_era5_global_*.nc",
+        "/g/data/rt52/era5/single-levels/reanalysis/2t/*/2t_era5_oper_sfc_*.nc",
         chunks=chunks,
         parallel=True,
         combine="nested",
@@ -73,9 +74,13 @@ def main():
     )
     t.mark("find_events")
 
+    print(events.shape)
+
     t.mark("event_values")
     values = climtas.event.event_values(sample, events)
     t.mark("event_values")
+
+    print(values.shape)
 
     t.mark("event_stats")
     stats = values.groupby("event_id").mean()

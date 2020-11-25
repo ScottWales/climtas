@@ -10,6 +10,6 @@ function run(){
 }
 
 #run 2
-run 4
+#run 4
 run 8
-run 16
+#run 16

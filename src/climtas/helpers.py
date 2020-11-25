@@ -28,8 +28,11 @@ These functions are low-level, and mainly intended for internal use
 
 
 def map_blocks_to_delayed(
-    da: xarray.DataArray, func,
-    *args, **kwargs,
+    da: xarray.DataArray,
+    func,
+    axis=None,
+    args=[],
+    kwargs={},
 ) -> T.List[T.Tuple[T.List[int], T.Any]]:
     """
     Run some function 'func' on each dask chunk of 'da'
@@ -60,7 +63,7 @@ def map_blocks_to_delayed(
     Args:
         da: Input DataArray
         func: Function to run
-        *args, **kwargs: Passed to func
+        args, kwargs: Passed to func
 
     Returns:
         List of tuples with the chunk offset in `da` and a delayed result of
@@ -77,15 +80,20 @@ def map_blocks_to_delayed(
 
     results = []
     for chunk in itertools.product(*block_id):
+        size = [data.chunks[d][chunk[d]] for d in range(da.ndim)]
         offset = [offsets[d][chunk[d]] for d in range(da.ndim)]
-        block = data.blocks[chunk]
+        # block = data.blocks[chunk]
 
-        coords = {
-            da.dims[d]: da.coords[da.dims[d]][offset[d] : offset[d] + block.shape[d]]
-            for d in range(da.ndim)
-        }
+        # coords = {
+        #     da.dims[d]: da.coords[da.dims[d]][offset[d] : offset[d] + block.shape[d]]
+        #     for d in range(da.ndim)
+        # }
 
-        da_block = xarray.DataArray(block, dims=da.dims, coords=coords, name=da.name, attrs=da.attrs)
+        # da_block = xarray.DataArray(block, dims=da.dims, coords=coords, name=da.name, attrs=da.attrs)
+
+        da_block = da[
+            tuple(slice(offset[d], offset[d] + size[d]) for d in range(da.ndim))
+        ]
 
         result = dask.delayed(func)(da_block, *args, offset=offset, **kwargs)
 
