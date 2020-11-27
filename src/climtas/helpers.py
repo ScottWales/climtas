@@ -125,7 +125,7 @@ def map_blocks_array_to_dataframe(
     func: T.Callable[..., pandas.DataFrame],
     array: dask.array.Array,
     meta: pandas.DataFrame,
-    prefix: T.Hashable = None,
+    prefix: str = None,
     **kwargs
 ) -> dask.dataframe.DataFrame:
     """
