@@ -83,6 +83,7 @@ def find_events(da: xarray.DataArray, min_duration: int = 1) -> pandas.DataFrame
         df = pandas.DataFrame(data=data, columns=columns)
         records.append(df[df.event_duration >= min_duration])
 
+    t = 0
     for t in tqdm(range(da.sizes["time"])):
         current_step = numpy.atleast_1d(
             numpy.take(da.data, t, axis=da.get_axis_num("time"))
