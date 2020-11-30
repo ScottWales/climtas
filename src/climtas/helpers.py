@@ -121,11 +121,30 @@ def throttle_futures(graph, key_list, optimizer=None, max_tasks=None):
     return results
 
 
+def locate_block_in_dataarray(
+    da: dask.array.Array, xda: xarray.DataArray, block_info: T.Dict[str, T.Any]
+):
+    """
+    Locates the metadata of the current block
+
+    Args:
+        da (dask.array.Array): A block of xda
+        xda (xarray.DataArray): Whole DataArray being operated on
+        block_info: Block metadata
+
+    Returns:
+        xarray.DataArray with the block and its metadata
+    """
+    meta = xda[tuple(slice(x0, x1) for x0, x1 in block_info["array-location"])]
+
+    return xarray.DataArray(da, name=meta.name, dims=meta.dims, coords=meta.coords)
+
+
 def map_blocks_array_to_dataframe(
     func: T.Callable[..., pandas.DataFrame],
     array: dask.array.Array,
-    meta: pandas.DataFrame,
     *args,
+    meta: pandas.DataFrame,
     **kwargs
 ) -> dask.dataframe.DataFrame:
     """
@@ -155,6 +174,14 @@ def map_blocks_array_to_dataframe(
     The mapping function behaves the same as :func:`dask.array.map_blocks`.
     If it has a keyword argument `block_info`, that argument will be filled
     with information about the block location.
+
+    The block can be located within a :obj:`xarray.DataArray`, adding the
+    correct coordinate metadata, with :func:`locate_block_in_dataarray`:
+
+    >>> xda = xarray.DataArray(da, dims=['t','x'])
+    >>> def func(da, block_info=None):
+    ...    da = locate_block_in_dataarray(da, xda, block_info[0])
+    ...    return pandas.DataFrame({"mean": da.mean().values}, index=[1])
 
     Args:
         func ((:obj:`numpy.array`, **kwargs) -> :obj:`pandas.DataFrame`):
