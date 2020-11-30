@@ -125,7 +125,7 @@ def map_blocks_array_to_dataframe(
     func: T.Callable[..., pandas.DataFrame],
     array: dask.array.Array,
     meta: pandas.DataFrame,
-    prefix: str = None,
+    *args,
     **kwargs
 ) -> dask.dataframe.DataFrame:
     """
@@ -150,7 +150,11 @@ def map_blocks_array_to_dataframe(
                        ...
                        ...
                        ...
-    Dask Name: map_ar_df_func, 8 tasks
+    Dask Name: func, 8 tasks
+
+    The mapping function behaves the same as :func:`dask.array.map_blocks`.
+    If it has a keyword argument `block_info`, that argument will be filled
+    with information about the block location.
 
     Args:
         func ((:obj:`numpy.array`, **kwargs) -> :obj:`pandas.DataFrame`):
@@ -158,38 +162,21 @@ def map_blocks_array_to_dataframe(
         array (:obj:`dask.array.Array`): Dask array to operate on
         meta (:obj:`pandas.DataFrame`): Sample dataframe with the correct
             output columns
-        **kwargs: Passed to 'func'
+        *args, **kwargs: Passed to 'func'
 
     Returns:
         :obj:`dask.dataframe.DataFrame`, with each block the result of applying
         'func' to a block of 'array', in an arbitrary order
     """
 
-    indices = range(array.ndim)
-
-    # A unique name in the task graph
-    if prefix is None:
-        prefix = "map_ar_df_" + func.__name__
-    name = prefix + "-" + dask.base.tokenize(array)
-
-    # Setup the blockwise operation
-    # The output blocks are the same as the input blocks so that each block
-    # gets computed individually, we'll flatten it later
-    graph = dask.blockwise.blockwise(
-        func,
-        name,
-        indices,
-        array.name,
-        indices,
-        numblocks={array.name: array.numblocks},
-        concatenate=False,
-        **kwargs,
+    # Use the array map blocks, with a dummy meta (as we won't be making an array)
+    mapped = dask.array.map_blocks(
+        func, array, *args, **kwargs, meta=numpy.array((), dtype="i")
     )
 
-    # Add the array's graph
-    graph = dask.highlevelgraph.HighLevelGraph.from_collections(
-        name, graph, dependencies=[array]
-    )
+    # Grab the Dask graph from the array map
+    graph = mapped.dask
+    name = mapped.name
 
     # Flatten the results to 1d
     # Keys in the graph layer are (name, chunk_coord)
