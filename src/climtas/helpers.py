@@ -160,7 +160,7 @@ def map_blocks_array_to_dataframe(
     >>> def func(da):
     ...    return pandas.DataFrame({"mean": da.mean()}, index=[1])
     >>> meta = pandas.DataFrame({"mean": pandas.Series([], dtype=da.dtype)})
-    >>> map_blocks_array_to_dataframe(func, da, meta) # doctest: +NORMALIZE_WHITESPACE
+    >>> map_blocks_array_to_dataframe(func, da, meta=meta) # doctest: +NORMALIZE_WHITESPACE
     Dask DataFrame Structure:
                       mean
     npartitions=4
