@@ -14,12 +14,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from dask.base import tokenize
 import numpy
 import dask
 import dask.delayed
+import dask.optimization
 import xarray
 import itertools
 import typing as T
+import time
 
 """Helper functions
 
@@ -31,6 +34,7 @@ def map_blocks_to_delayed(
     da: xarray.DataArray,
     func,
     axis=None,
+    name="blocks-to-delayed",
     args=[],
     kwargs={},
 ) -> T.List[T.Tuple[T.List[int], T.Any]]:
@@ -70,6 +74,7 @@ def map_blocks_to_delayed(
         running `func` on that chunk
     """
     data = da.data
+    # data.dask = data.__dask_optimize__(data.__dask_graph__(), data.__dask_keys__())
 
     offsets = []
     block_id = []
@@ -82,20 +87,31 @@ def map_blocks_to_delayed(
     for chunk in itertools.product(*block_id):
         size = [data.chunks[d][chunk[d]] for d in range(da.ndim)]
         offset = [offsets[d][chunk[d]] for d in range(da.ndim)]
-        # block = data.blocks[chunk]
+        block = data.blocks[chunk]
 
-        # coords = {
-        #     da.dims[d]: da.coords[da.dims[d]][offset[d] : offset[d] + block.shape[d]]
-        #     for d in range(da.ndim)
-        # }
+        # block.dask, _ = dask.optimization.cull(block.__dask_graph__, block.__dask_layers__())
+        # mark = time.perf_counter()
+        # block.dask = block.__dask_optimize__(
+        #     block.__dask_graph__(), block.__dask_keys__()
+        # )
+        # print("opt", time.perf_counter() - mark)
 
-        # da_block = xarray.DataArray(block, dims=da.dims, coords=coords, name=da.name, attrs=da.attrs)
+        coords = {
+            da.dims[d]: da.coords[da.dims[d]][offset[d] : offset[d] + block.shape[d]]
+            for d in range(da.ndim)
+        }
 
-        da_block = da[
-            tuple(slice(offset[d], offset[d] + size[d]) for d in range(da.ndim))
-        ]
+        da_block = xarray.DataArray(
+            block, dims=da.dims, coords=coords, name=da.name, attrs=da.attrs
+        )
 
-        result = dask.delayed(func)(da_block, *args, offset=offset, **kwargs)
+        # da_block = da[
+        #     tuple(slice(offset[d], offset[d] + size[d]) for d in range(da.ndim))
+        # ]
+
+        name = name + "-" + tokenize(block.name)
+
+        result = dask.delayed(func, name=name)(da_block, *args, offset=offset, **kwargs)
 
         results.append((offset, result))
 

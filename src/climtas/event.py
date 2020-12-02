@@ -20,15 +20,16 @@ Locate where events are with :func:`find_events`, then analyse them with
 :func:`map_events()` to create a :class:`pandas.DataFrame`.
 """
 
+from dask.dataframe.core import new_dd_object
+from dask.delayed import tokenize
 import numpy
 import dask
+import dask.dataframe
 import pandas
 import xarray
-from tqdm.auto import tqdm
 import typing as T
 import sparse
 from .helpers import map_blocks_to_delayed
-import time
 
 
 def find_events(
@@ -152,6 +153,7 @@ def find_events_block(
                 df[numpy.logical_or(df.event_duration >= min_duration, df.time == 0)]
             )
 
+    t = 0
     for t in range(da.sizes["time"]):
         current_step = numpy.atleast_1d(
             numpy.take(da.data, t, axis=da.get_axis_num("time"))
@@ -539,25 +541,109 @@ def _merge_join(df_x: pandas.DataFrame, df_y: pandas.DataFrame) -> pandas.DataFr
     return pandas.concat([result, df_y[df_y["time"] > t0]], ignore_index=True)
 
 
-def event_values(da: xarray.DataArray, events: pandas.DataFrame):
+def event_values(
+    da: xarray.DataArray, events: pandas.DataFrame, use_dask=True
+) -> dask.dataframe.DataFrame:
     """
     Gets the values from da where an event is active
+
+    Note that for a large dataset with many events this can consume a
+    considerable amount of memory. `use_dask=True` will return an uncomputed
+    :obj:`dask.dataframe.DataFrame` instead of a :obj:`pandas.DataFrame`,
+    potentially saving memory. You can compute the results later with
+    :meth:`dask.dataframe.DataFrame.compute()`.
+
+    >>> da = xarray.DataArray(
+    ...     [0,3,6,2,0,8,6],
+    ...     coords=[('time',
+    ...              pandas.date_range('20010101', periods=7, freq='D'))])
+    >>> events = find_events(da > 0)
+    >>> event_values(da, events)
+       time  event_id  value
+    0     1         0      3
+    1     2         0      6
+    2     3         0      2
+    3     5         1      8
+    4     6         1      6
+
+    See the Dask DataFrame documentation for performance information. In general basic
+    reductions (min, mean, max, etc.) should be fast.
+
+    >>> values = event_values(da, events)
+    >>> values.groupby('event_id').value.mean()
+    event_id
+    0    3.666667
+    1    7.000000
+    Name: value, dtype: float64
+
+    For custom aggregations setting an index may help performance. This sorts the data though,
+    so may use a lot of memory
+
+    >>> values = values.set_index('event_id')
+    >>> values.groupby('event_id').value.apply(lambda x: x.min())
+    event_id
+    0    2
+    1    6
+    Name: value, dtype: int64
+
+    Args:
+        da (:class:`xarray.DataArray`): Source data values
+        events (:class:`pandas.DataFrame`): Event start & durations, e.g. from
+            :func:`find_events`
+        use_dask (bool): If true, returns an uncomputed Dask DataFrame. If false,
+            computes the values before returning
+
+    Returns:
+        :obj:`dask.dataframe.DataFrame` with columns event_id, time, value
     """
 
     chunks = getattr(da, "chunks", None)
 
     if chunks is None:
+        print("no chunks")
         return event_values_block(da, events, offset=(0,) * da.ndim)
 
+    print("map")
     events_map = map_blocks_to_delayed(
-        da,
-        event_values_block,
-        kwargs={"events": events},
+        da, event_values_block, kwargs={"events": events}, name="event_values_block"
     )
 
-    events_map = dask.compute(events_map)[0]
+    if not use_dask:
+        print("no dask")
+        events_map = dask.compute(events_map)[0]
+        df = pandas.concat([e for o, e in events_map])
 
-    return pandas.concat([e for o, e in events_map])
+    else:
+        print("Using dask")
+        # df = dask.dataframe.from_delayed(
+        #     [e for o, e in events_map],
+        #     meta=[("time", "int"), ("event_id", "int"), ("value", da.dtype)],
+        #     verify_meta=False,
+        # )
+
+        dfs = [e for o, e in events_map]
+
+        name = "from-delayed" + "-" + tokenize(*dfs)
+
+        dsk = {}
+        dsk.update(dfs[0].dask)
+        for i in range(1, len(dfs)):
+            print(dfs[i].dask)
+            dsk.update(
+                {
+                    k: v
+                    for k, v in dfs[i].dask.items()
+                    if k[0].startswith("event_values_block")
+                }
+            )
+
+        meta = [("time", "int"), ("event_id", "int"), ("value", da.dtype)]
+
+        meta = pandas.DataFrame({k: pandas.Series([], dtype=v) for k, v in meta})
+
+        df = new_dd_object(dsk, name, meta, [None] * (len(dfs) + 1))
+
+    return df
 
 
 def event_values_block(
@@ -569,12 +655,13 @@ def event_values_block(
     """
     Gets the values from da where an event is active
     """
+    print("values called")
 
     if load:
         da = da.load()
 
-    event_id = -1 * numpy.ones(da.isel(time=0).shape, dtype="i")
-    event_duration = -1 * numpy.ones(da.isel(time=0).shape, dtype="i")
+    event_id = numpy.atleast_1d(-1 * numpy.ones(da.isel(time=0).shape, dtype="i"))
+    event_duration = numpy.atleast_1d(-1 * numpy.ones(da.isel(time=0).shape, dtype="i"))
 
     times = []
     event_ids = []
@@ -593,11 +680,14 @@ def event_values_block(
         & (events["time"] + events["event_duration"] >= t_offset)
     ]
 
-    indices = tuple([active_events[c] - offset[c] for c in active_events.columns[1:-1]])
-    event_id[indices] = active_events.index.values
-    event_duration[indices] = (
-        active_events.time + active_events.event_duration - t_offset
-    )
+    if active_events.size > 0:
+        indices = tuple(
+            [active_events[c] - offset[c] for c in active_events.columns[1:-1]]
+        )
+        event_id[indices] = active_events.index.values
+        event_duration[indices] = (
+            active_events.time + active_events.event_duration - t_offset
+        )
 
     for t in range(da.sizes["time"]):
         # Add newly active events
@@ -622,7 +712,7 @@ def event_values_block(
 
         # Get values
         event_ids.append(event_id[indices])
-        event_values.append(da.isel(time=t).values[indices])
+        event_values.append(numpy.atleast_1d(da.isel(time=t).values)[indices])
         times.append(numpy.ones_like(event_ids[-1]) * (t + t_offset))
 
         # Decrease durations
@@ -637,7 +727,8 @@ def event_values_block(
     else:
         return None
 
-    return pandas.DataFrame(result, index=["time", "event_id", "value"]).T
+    df = pandas.DataFrame(result, index=["time", "event_id", "value"]).T
+    return df
 
 
 def filter_block(

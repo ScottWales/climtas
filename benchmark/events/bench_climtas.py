@@ -75,15 +75,17 @@ def main():
     t.mark("find_events")
 
     print(events.shape)
+    print(sample)
 
     t.mark("event_values")
-    values = climtas.event.event_values(sample, events)
+    values = climtas.event.event_values(sample, events, use_dask=True)
     t.mark("event_values")
 
     print(values.shape)
+    print(values)
 
     t.mark("event_stats")
-    stats = values.groupby("event_id").mean()
+    stats = values.groupby("event_id")["value"].mean()
     t.mark("event_stats")
 
     t.record("results.csv")
