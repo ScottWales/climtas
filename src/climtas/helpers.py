@@ -20,9 +20,11 @@ import dask
 import dask.delayed
 import dask.optimization
 import xarray
-import itertools
+import pandas
 import typing as T
-import time
+import dask.array
+import dask.dataframe
+import itertools
 
 """Helper functions
 
@@ -209,3 +211,103 @@ def throttle_futures(graph, key_list, optimizer=None, max_tasks=None):
         results.append(result)
 
     return results
+
+
+def locate_block_in_dataarray(
+    da: dask.array.Array, xda: xarray.DataArray, block_info: T.Dict[str, T.Any]
+):
+    """
+    Locates the metadata of the current block
+
+    Args:
+        da (dask.array.Array): A block of xda
+        xda (xarray.DataArray): Whole DataArray being operated on
+        block_info: Block metadata
+
+    Returns:
+        xarray.DataArray with the block and its metadata
+    """
+    meta = xda[tuple(slice(x0, x1) for x0, x1 in block_info["array-location"])]
+
+    return xarray.DataArray(da, name=meta.name, dims=meta.dims, coords=meta.coords)
+
+
+def map_blocks_array_to_dataframe(
+    func: T.Callable[..., pandas.DataFrame],
+    array: dask.array.Array,
+    *args,
+    meta: pandas.DataFrame,
+    **kwargs
+) -> dask.dataframe.DataFrame:
+    """
+    Apply a function `func` to each dask chunk, returning a dataframe
+
+    'func' will be set up to run on each dask chunk of 'array', returning a
+    dataframe. These dataframes are then collated into a single dask dataframe.
+
+    The returned dataframe is in an arbitrary order, it may be sorted with
+    :meth:`dask.dataframe.DataFrame.set_index`.
+
+    >>> da = dask.array.zeros((10, 10), chunks=(5, 5))
+    >>> def func(da):
+    ...    return pandas.DataFrame({"mean": da.mean()}, index=[1])
+    >>> meta = pandas.DataFrame({"mean": pandas.Series([], dtype=da.dtype)})
+    >>> map_blocks_array_to_dataframe(func, da, meta=meta) # doctest: +NORMALIZE_WHITESPACE
+    Dask DataFrame Structure:
+                      mean
+    npartitions=4
+                   float64
+                       ...
+                       ...
+                       ...
+                       ...
+    Dask Name: func, 8 tasks
+
+    The mapping function behaves the same as :func:`dask.array.map_blocks`.
+    If it has a keyword argument `block_info`, that argument will be filled
+    with information about the block location.
+
+    The block can be located within a :obj:`xarray.DataArray`, adding the
+    correct coordinate metadata, with :func:`locate_block_in_dataarray`:
+
+    >>> xda = xarray.DataArray(da, dims=['t','x'])
+    >>> def func(da, block_info=None):
+    ...    da = locate_block_in_dataarray(da, xda, block_info[0])
+    ...    return pandas.DataFrame({"mean": da.mean().values}, index=[1])
+
+    Args:
+        func ((:obj:`numpy.array`, **kwargs) -> :obj:`pandas.DataFrame`):
+            Function to run on each block
+        array (:obj:`dask.array.Array`): Dask array to operate on
+        meta (:obj:`pandas.DataFrame`): Sample dataframe with the correct
+            output columns
+        *args, **kwargs: Passed to 'func'
+
+    Returns:
+        :obj:`dask.dataframe.DataFrame`, with each block the result of applying
+        'func' to a block of 'array', in an arbitrary order
+    """
+
+    # Use the array map blocks, with a dummy meta (as we won't be making an array)
+    mapped = dask.array.map_blocks(
+        func, array, *args, **kwargs, meta=numpy.array((), dtype="i")
+    )
+
+    # Grab the Dask graph from the array map
+    graph = mapped.dask
+    name = mapped.name
+
+    # Flatten the results to 1d
+    # Keys in the graph layer are (name, chunk_coord)
+    # We'll replace chunk_coord with a scalar value
+    layer = {}
+    for i, v in enumerate(graph.layers[name].values()):
+        layer[(name, i)] = v
+    graph.layers[name] = layer
+
+    # Low level dask dataframe constructor
+    df = dask.dataframe.core.new_dd_object(
+        graph, name, meta, [None] * (array.npartitions + 1)
+    )
+
+    return df
