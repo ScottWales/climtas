@@ -29,7 +29,11 @@ import pandas
 import xarray
 import typing as T
 import sparse
-from .helpers import map_blocks_to_delayed
+from .helpers import (
+    locate_block_in_dataarray,
+    map_blocks_array_to_dataframe,
+    map_blocks_to_delayed,
+)
 
 
 def find_events(
@@ -597,51 +601,26 @@ def event_values(
         :obj:`dask.dataframe.DataFrame` with columns event_id, time, value
     """
 
-    chunks = getattr(da, "chunks", None)
+    def helper(a, *args, block_info=None, _source_da, **kwargs):
+        da = locate_block_in_dataarray(a, _source_da, block_info[0])
+        offset = [off[0] for off in block_info[0]["array-location"]]
 
-    if chunks is None:
-        print("no chunks")
-        return event_values_block(da, events, offset=(0,) * da.ndim)
+        return event_values_block(da, events, offset)
 
-    print("map")
-    events_map = map_blocks_to_delayed(
-        da, event_values_block, kwargs={"events": events}, name="event_values_block"
+    meta = pandas.DataFrame(
+        {
+            "time": pandas.Series([], dtype="i"),
+            "event_id": pandas.Series([], dtype="i"),
+            "value": pandas.Series([], dtype=da.dtype),
+        }
     )
 
-    if not use_dask:
-        print("no dask")
-        events_map = dask.compute(events_map)[0]
-        df = pandas.concat([e for o, e in events_map])
+    if getattr(da, "chunks", None) is None:
+        return event_values_block(da, events, [0] * da.ndim)
 
-    else:
-        print("Using dask")
-        # df = dask.dataframe.from_delayed(
-        #     [e for o, e in events_map],
-        #     meta=[("time", "int"), ("event_id", "int"), ("value", da.dtype)],
-        #     verify_meta=False,
-        # )
-
-        dfs = [e for o, e in events_map]
-
-        name = "from-delayed" + "-" + tokenize(*dfs)
-
-        dsk = {}
-        dsk.update(dfs[0].dask)
-        for i in range(1, len(dfs)):
-            print(dfs[i].dask)
-            dsk.update(
-                {
-                    k: v
-                    for k, v in dfs[i].dask.items()
-                    if k[0].startswith("event_values_block")
-                }
-            )
-
-        meta = [("time", "int"), ("event_id", "int"), ("value", da.dtype)]
-
-        meta = pandas.DataFrame({k: pandas.Series([], dtype=v) for k, v in meta})
-
-        df = new_dd_object(dsk, name, meta, [None] * (len(dfs) + 1))
+    df = map_blocks_array_to_dataframe(
+        helper, da.data, _source_da=da, events=events, meta=meta
+    )
 
     return df
 
@@ -655,7 +634,6 @@ def event_values_block(
     """
     Gets the values from da where an event is active
     """
-    print("values called")
 
     if load:
         da = da.load()
@@ -718,16 +696,17 @@ def event_values_block(
         # Decrease durations
         event_duration -= 1
 
-    # times = numpy.concatenate(times)
-    # event_ids = numpy.concatenate(event_ids)
-    # event_values = numpy.concatenate(event_values)
-
-    if len(times) > 0:
-        result = numpy.block([times, event_ids, event_values])
-    else:
+    if len(times) == 0:
         return None
 
-    df = pandas.DataFrame(result, index=["time", "event_id", "value"]).T
+    df = pandas.DataFrame(
+        {
+            "time": numpy.concatenate(times),
+            "event_id": numpy.concatenate(event_ids),
+            "value": numpy.concatenate(event_values),
+        }
+    )
+
     return df
 
 

@@ -227,7 +227,10 @@ def locate_block_in_dataarray(
     Returns:
         xarray.DataArray with the block and its metadata
     """
-    meta = xda[tuple(slice(x0, x1) for x0, x1 in block_info["array-location"])]
+    if block_info is not None:
+        meta = xda[tuple(slice(x0, x1) for x0, x1 in block_info["array-location"])]
+    else:
+        meta = xda
 
     return xarray.DataArray(da, name=meta.name, dims=meta.dims, coords=meta.coords)
 
@@ -287,6 +290,9 @@ def map_blocks_array_to_dataframe(
         :obj:`dask.dataframe.DataFrame`, with each block the result of applying
         'func' to a block of 'array', in an arbitrary order
     """
+
+    if getattr(array, "npartitions", None) is None:
+        return func(array, *args, **kwargs)
 
     # Use the array map blocks, with a dummy meta (as we won't be making an array)
     mapped = dask.array.map_blocks(
