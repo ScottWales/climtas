@@ -30,10 +30,12 @@ import xarray
 import typing as T
 import sparse
 from .helpers import (
+    array_blocks_to_dataframe,
     locate_block_in_dataarray,
     map_blocks_array_to_dataframe,
     map_blocks_to_delayed,
 )
+import time
 
 
 def find_events(
@@ -84,17 +86,43 @@ def find_events(
         )
 
     else:
-        events_map = map_blocks_to_delayed(
-            da, find_events_block, kwargs={"min_duration": min_duration}
+        # Map function to each dask block
+        data = da.data
+
+        def find_events_block_helper(block, xda, min_duration, block_info=None):
+            da = locate_block_in_dataarray(block, xda, block_info[0])
+            offset = [off[0] for off in block_info[0]["array-location"]]
+
+            return find_events_block(da, offset, min_duration)
+
+        block_events = data.map_blocks(
+            find_events_block_helper, da, min_duration, meta=numpy.array((), dtype="i")
         )
 
-        events_map = dask.compute(events_map)[0]
+        def join_events_chunk(block, axis, keepdims):
+            return block
 
-        events = join_events(
-            [events for offset, events in events_map],
-            offsets=[offset for offset, events in events_map],
-            dims=da.dims,
+        def join_events_aggregate(blocks, axis, keepdims):
+            return join_events(blocks)
+
+        joined_events = dask.array.reduction(
+            block_events,
+            join_events_chunk,
+            join_events_aggregate,
+            axis=da.get_axis_num("time"),
+            dtype="i",
+            concatenate=False,
+            meta=numpy.array((), dtype="i"),
         )
+
+        meta = pandas.DataFrame()
+        meta["time"] = pandas.Series([], dtype="i")
+        for d in da.dims:
+            if d != "time":
+                meta[d] = pandas.Series([], dtype="i")
+        meta["event_duration"] = pandas.Series([], dtype="i")
+
+        events = array_blocks_to_dataframe(joined_events, meta)
 
     # Final cleanup of events at the start/end of chunks
     return events[events.event_duration >= min_duration]
@@ -476,6 +504,12 @@ def join_events(
 
         return pandas.concat(results, ignore_index=True)
 
+    if len(events) == 0:
+        return None
+
+    if len(events) == 1:
+        return events[0]
+
     results = []
     for i in range(0, len(events) - 1):
         next_t0 = events[i + 1]["time"].min()
@@ -489,26 +523,6 @@ def join_events(
     results.append(events[-1])
 
     return pandas.concat(results)
-
-
-def _single_gridpoint_join(df: pandas.DataFrame) -> pandas.DataFrame:
-    """
-    Join events on a single gridpoint
-    """
-
-    i_start = 0
-
-    for i in range(1, df.shape[0]):
-        last_end = df.iloc[i_start].time + df.iloc[i_start].event_duration
-
-        if last_end == df.iloc[i].time:
-            # Last event ends when this one starts, merge
-            df.iloc[i_start].event_duration += df.iloc[i].event_duration
-            df.iloc[i].event_duration = 0
-        else:
-            i_start = i
-
-    return df[df.event_duration > 0]
 
 
 def _merge_join(df_x: pandas.DataFrame, df_y: pandas.DataFrame) -> pandas.DataFrame:
@@ -601,7 +615,7 @@ def event_values(
         :obj:`dask.dataframe.DataFrame` with columns event_id, time, value
     """
 
-    def helper(a, *args, block_info=None, _source_da, **kwargs):
+    def event_values_helper(a, *args, block_info=None, _source_da, **kwargs):
         da = locate_block_in_dataarray(a, _source_da, block_info[0])
         offset = [off[0] for off in block_info[0]["array-location"]]
 
@@ -619,7 +633,7 @@ def event_values(
         return event_values_block(da, events, [0] * da.ndim)
 
     df = map_blocks_array_to_dataframe(
-        helper, da.data, _source_da=da, events=events, meta=meta
+        event_values_helper, da.data, _source_da=da, events=events, meta=meta
     )
 
     return df

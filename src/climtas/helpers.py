@@ -299,9 +299,19 @@ def map_blocks_array_to_dataframe(
         func, array, *args, **kwargs, meta=numpy.array((), dtype="i")
     )
 
+    return array_blocks_to_dataframe(mapped, meta)
+
+
+def array_blocks_to_dataframe(
+    array: dask.array.Array, meta: pandas.DataFrame
+) -> dask.dataframe.DataFrame:
+    """
+    Convert the blocks from a dask array to a dask dataframe
+    """
+
     # Grab the Dask graph from the array map
-    graph = mapped.dask
-    name = mapped.name
+    graph = array.dask
+    name = array.name
 
     # Flatten the results to 1d
     # Keys in the graph layer are (name, chunk_coord)
