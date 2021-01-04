@@ -64,3 +64,45 @@ def test_blockwise_xarray():
     df = df.compute()
 
     numpy.testing.assert_array_equal(df.to_numpy(), [[0], [0], [0], [0]])
+
+
+def test_throttled_compute():
+
+    # Numpy array
+    s = numpy.random.random((10, 10))
+
+    tc = throttled_compute(s, n=1)
+    (dc,) = dask.compute(s)
+    numpy.testing.assert_array_equal(tc, dc)
+
+    # Numpy array converted to dask
+    s = dask.array.from_array(s, chunks=(5, 5))
+
+    tc = throttled_compute(s, n=1)
+    (dc,) = dask.compute(s)
+    numpy.testing.assert_array_equal(tc, dc)
+
+    # Pure dask array
+    s = dask.array.random.random((10, 10), chunks=(5, 5))
+
+    tc = throttled_compute(s, n=1)
+    (dc,) = dask.compute(s)
+    numpy.testing.assert_array_equal(tc, dc)
+
+    # Xarray + Numpy
+    s = numpy.random.random((10, 10))
+    s = xarray.DataArray(s, name="foo")
+
+    tc = throttled_compute(s, n=1)
+    (dc,) = dask.compute(s)
+    numpy.testing.assert_array_equal(tc, dc)
+    assert tc.name == "foo"
+
+    # Xarray + Dask
+    s = dask.array.random.random((10, 10), chunks=(5, 5))
+    s = xarray.DataArray(s, name="foo")
+
+    tc = throttled_compute(s, n=1)
+    (dc,) = dask.compute(s)
+    numpy.testing.assert_array_equal(tc, dc)
+    assert tc.name == "foo"
