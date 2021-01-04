@@ -2,9 +2,22 @@
 Utilities for working with Dask
 """
 
+import xarray
+import dask
+import numpy
+from itertools import zip_longest
+import typing as T
+
 
 # An array-like value for typing
 ArrayVar = T.TypeVar("ArrayVar", xarray.DataArray, dask.array.Array, numpy.ndarray)
+
+
+def _grouper(iterable, n, fillvalue=None):
+    "Collect data into fixed-length chunks or blocks"
+    # grouper('ABCDEFG', 3, 'x') --> ABC DEF Gxx"
+    args = [iter(iterable)] * n
+    return zip_longest(*args, fillvalue=fillvalue)
 
 
 def throttled_compute(arr: ArrayVar, *, n: int, name: T.Hashable = None) -> ArrayVar:
@@ -42,7 +55,7 @@ def throttled_compute(arr: ArrayVar, *, n: int, name: T.Hashable = None) -> Arra
     result = {}
 
     # Compute chunks N at a time
-    for x in grouper(top_layer, n):
+    for x in _grouper(top_layer, n):
         x = [xx for xx in x if xx is not None]
         values = schedule(obj.dask, list(x))
         result.update(dict(zip(x, values)))
@@ -66,13 +79,14 @@ def visualize_block(arr: dask.array.Array):
     """
     Visualise the graph of a single chunk from 'arr'
     """
+    import dask.dot
 
     name = arr.name
     graph = arr.dask
     layer = graph.layers[name]
-    block = next(layer.values())
-    culled = graph.cull(set(block))
+    block = next(iter(layer.keys()))
+    culled = graph.cull(set([block]))
 
-    graph = dask.dot.to_graphviz(culled)
+    graph = dask.highlevelgraph.to_graphviz(culled)
 
     return graph
