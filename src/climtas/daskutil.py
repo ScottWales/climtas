@@ -6,6 +6,7 @@ import xarray
 import dask
 import numpy
 from itertools import zip_longest
+import graphviz
 import typing as T
 
 
@@ -75,9 +76,12 @@ def throttled_compute(arr: ArrayVar, *, n: int, name: T.Hashable = None) -> Arra
     return obj
 
 
-def visualize_block(arr: dask.array.Array):
+def visualize_block(arr: dask.array.Array) -> graphviz.Digraph:
     """
     Visualise the graph of a single chunk from 'arr'
+
+    In a Jupyter notebook the graph will automatically display, otherwise use
+    :meth:`graphviz.Digraph.render` to create an image.
     """
     import dask.dot
 
