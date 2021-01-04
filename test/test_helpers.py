@@ -53,7 +53,9 @@ def test_blockwise_xarray():
     xda = xarray.DataArray(da, dims=["t", "x"])
 
     def func(da, block_info=None):
-        meta = locate_block_in_dataarray(da, xda, block_info[0])
+        meta = locate_block_in_dataarray(
+            da, xda.name, xda.dims, xda.coords, block_info[0]
+        )
         return pandas.DataFrame({"mean": meta.mean().values}, index=[1])
 
     meta = pandas.DataFrame({"mean": pandas.Series([], dtype=da.dtype)})

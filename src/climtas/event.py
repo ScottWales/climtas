@@ -39,7 +39,10 @@ import time
 
 
 def find_events(
-    da: xarray.DataArray, min_duration: int = 1, use_dask: bool = None
+    da: xarray.DataArray,
+    min_duration: int = 1,
+    use_dask: bool = None,
+    compute: bool = True,
 ) -> pandas.DataFrame:
     """Find 'events' in a DataArray mask
 
@@ -64,6 +67,10 @@ def find_events(
             active. Must have a 'time' dimension, dtype is expected to be bool
             (or something else that is truthy when an event is active)
         min_duration (:class:`int`): Minimum event duration to return
+        use_dask (:class:`bool`): Enable Dask parallelism (default True if da
+            is chunked)
+        compute (:class:`bool`): Compute the dask operations. Note that if
+            False the dataframe index will not have unique values
 
     Returns:
         A :class:`pandas.DataFrame` containing event start points and
@@ -73,12 +80,12 @@ def find_events(
 
     chunks = getattr(da, "chunks", None)
 
-    if use_dask is None and chunks is not None:
-        # Decide whether to apply on blocks
-        time_ax = da.get_axis_num("time")
+    # if use_dask is None and chunks is not None:
+    #     # Decide whether to apply on blocks
+    #     time_ax = da.get_axis_num("time")
 
-        if len(chunks[time_ax]) > 1:
-            use_dask = False
+    #     if len(chunks[time_ax]) > 1:
+    #         use_dask = False
 
     if chunks is None or use_dask is False:
         events = find_events_block(
@@ -89,26 +96,38 @@ def find_events(
         # Map function to each dask block
         data = da.data
 
-        def find_events_block_helper(block, xda, min_duration, block_info=None):
-            da = locate_block_in_dataarray(block, xda, block_info[0])
+        def find_events_block_helper(
+            block, name, dims, coords, min_duration, block_info=None
+        ):
+            da = locate_block_in_dataarray(block, name, dims, coords, block_info[0])
             offset = [off[0] for off in block_info[0]["array-location"]]
 
             return find_events_block(da, offset, min_duration)
 
         block_events = data.map_blocks(
-            find_events_block_helper, da, min_duration, meta=numpy.array((), dtype="i")
+            find_events_block_helper,
+            da.name,
+            da.dims,
+            da.coords,
+            min_duration,
+            meta=numpy.array((), dtype="i"),
         )
 
         def join_events_chunk(block, axis, keepdims):
             return block
 
-        def join_events_aggregate(blocks, axis, keepdims):
+        def join_events_combine(blocks, axis, keepdims):
             return join_events(blocks)
+
+        def join_events_aggregate(blocks, axis, keepdims):
+            e = join_events(blocks)
+            return e[e.event_duration >= min_duration]
 
         joined_events = dask.array.reduction(
             block_events,
             join_events_chunk,
             join_events_aggregate,
+            combine=join_events_combine,
             axis=da.get_axis_num("time"),
             dtype="i",
             concatenate=False,
@@ -124,8 +143,14 @@ def find_events(
 
         events = array_blocks_to_dataframe(joined_events, meta)
 
+        if compute:
+            events = events.compute()
+            events.reset_index(drop=True, inplace=True)
+
     # Final cleanup of events at the start/end of chunks
-    return events[events.event_duration >= min_duration]
+    events = events[events.event_duration >= min_duration]
+
+    return events
 
 
 def find_events_block(
@@ -504,6 +529,9 @@ def join_events(
 
         return pandas.concat(results, ignore_index=True)
 
+    if isinstance(events, pandas.DataFrame):
+        events = [events]
+
     if len(events) == 0:
         return None
 
@@ -513,6 +541,10 @@ def join_events(
     results = []
     for i in range(0, len(events) - 1):
         next_t0 = events[i + 1]["time"].min()
+
+        if numpy.isnan(next_t0):
+            results.append(events[i])
+            continue
 
         stop = events[i]["time"] + events[i]["event_duration"]
 
@@ -615,8 +647,8 @@ def event_values(
         :obj:`dask.dataframe.DataFrame` with columns event_id, time, value
     """
 
-    def event_values_helper(a, *args, block_info=None, _source_da, **kwargs):
-        da = locate_block_in_dataarray(a, _source_da, block_info[0])
+    def event_values_helper(a, name, dims, coords, events, block_info=None):
+        da = locate_block_in_dataarray(a, name, dims, coords, block_info[0])
         offset = [off[0] for off in block_info[0]["array-location"]]
 
         return event_values_block(da, events, offset)
@@ -632,9 +664,16 @@ def event_values(
     if getattr(da, "chunks", None) is None:
         return event_values_block(da, events, [0] * da.ndim)
 
-    df = map_blocks_array_to_dataframe(
-        event_values_helper, da.data, _source_da=da, events=events, meta=meta
+    values = da.data.map_blocks(
+        event_values_helper,
+        da.name,
+        da.dims,
+        da.coords,
+        events=events,
+        meta=numpy.array((), dtype="i"),
     )
+
+    df = array_blocks_to_dataframe(values, meta)
 
     return df
 

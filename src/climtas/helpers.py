@@ -214,7 +214,11 @@ def throttle_futures(graph, key_list, optimizer=None, max_tasks=None):
 
 
 def locate_block_in_dataarray(
-    da: dask.array.Array, xda: xarray.DataArray, block_info: T.Dict[str, T.Any]
+    block: dask.array.Array,
+    name: str,
+    dims: T.List[str],
+    coords: T.Dict[T.Hashable, T.Any],
+    block_info: T.Dict[str, T.Any],
 ):
     """
     Locates the metadata of the current block
@@ -228,11 +232,20 @@ def locate_block_in_dataarray(
         xarray.DataArray with the block and its metadata
     """
     if block_info is not None:
-        meta = xda[tuple(slice(x0, x1) for x0, x1 in block_info["array-location"])]
-    else:
-        meta = xda
+        subset = {
+            d: slice(x0, x1) for d, (x0, x1) in zip(dims, block_info["array-location"])
+        }
 
-    return xarray.DataArray(da, name=meta.name, dims=meta.dims, coords=meta.coords)
+        out_coords = {}
+        for k, v in coords.items():
+            out_coords[k] = v.isel(
+                {kk: vv for kk, vv in subset.items() if kk in v.dims}
+            )
+
+    else:
+        out_coords = coords
+
+    return xarray.DataArray(block, name=name, dims=dims, coords=out_coords)
 
 
 def map_blocks_array_to_dataframe(

@@ -1,12 +1,8 @@
 import xarray
 import climtas
-import tempfile
-import time
-import typing as T
-import csv
 import os.path
-import datetime
 import climtas.nci
+import dask
 
 
 def get_threshold(t, da, time_range):
@@ -35,60 +31,65 @@ def main():
     client = climtas.nci.GadiClient()
     t.client = client
 
-    chunks = {"time": -1, "latitude": 91, "longitude": 180}
-    t.chunks.update(chunks)
+    try:
 
-    t.mark("open_mfdataset")
-    t2m = xarray.open_mfdataset(
-        # "/g/data/ub4/era5/netcdf/surface/t2m/*/t2m_era5_global_*.nc",
-        "/g/data/rt52/era5/single-levels/reanalysis/2t/*/2t_era5_oper_sfc_*.nc",
-        chunks=chunks,
-        parallel=True,
-        combine="nested",
-        concat_dim="time",
-        compat="override",
-        coords="minimal",
-    )["t2m"]
-    t.mark("open_mfdataset")
+        chunks = {"time": -1, "latitude": 91, "longitude": 180}
+        t.chunks.update(chunks)
 
-    t2m = t2m.sel(time=slice("2014", "2020"))
+        t.mark("open_mfdataset")
+        t2m = xarray.open_mfdataset(
+            # "/g/data/ub4/era5/netcdf/surface/t2m/*/t2m_era5_global_*.nc",
+            "/g/data/rt52/era5/single-levels/reanalysis/2t/*/2t_era5_oper_sfc_*.nc",
+            chunks=chunks,
+            parallel=True,
+            combine="nested",
+            concat_dim="time",
+            compat="override",
+            coords="minimal",
+        )["t2m"]
+        t.mark("open_mfdataset")
 
-    t.mark("resample")
-    t2m_daily = climtas.blocked_resample(t2m, time=24).mean()
-    t.mark("resample")
+        t2m = t2m.sel(time=slice("2014", "2020"))
 
-    time_range = slice("2015", "2019")
+        t.mark("resample")
+        t2m_daily = climtas.blocked_resample(t2m, time=24).mean()
+        t.mark("resample")
 
-    t.exclude("threshold")
-    threshold = get_threshold(t, t2m_daily, time_range)
-    t.exclude("threshold")
+        time_range = slice("2015", "2019")
 
-    sample = t2m_daily.sel(time=slice("2015", "2015"))[:, :n, :n]
-    threshold = threshold[:, :n, :n]
+        t.exclude("threshold")
+        threshold = get_threshold(t, t2m_daily, time_range)
+        t.exclude("threshold")
 
-    t.mark("find_events")
-    events = climtas.event.find_events(
-        sample.groupby("time.dayofyear") > threshold,
-        min_duration=5,
-        use_dask=True,
-    )
-    t.mark("find_events")
+        sample = t2m_daily.sel(time=slice("2015", "2015"))[:, :n, :n]
+        threshold = threshold[:, :n, :n]
 
-    print(events.shape)
-    print(sample)
+        t.mark("find_events")
+        events = climtas.event.find_events(
+            (sample.groupby("time.dayofyear") > threshold).chunk({"time": 30}),
+            min_duration=5,
+            use_dask=True,
+        )
+        t.mark("find_events")
 
-    t.mark("event_values")
-    values = climtas.event.event_values(sample, events, use_dask=True)
-    t.mark("event_values")
+        print(events.shape)
+        print(sample)
 
-    print(values.shape)
-    print(values)
+        t.mark("event_values")
+        # values = climtas.event.event_values(sample, events, use_dask=True)
+        # (values,) = dask.compute(values)
+        # values.to_csv("values.csv")
+        t.mark("event_values")
 
-    t.mark("event_stats")
-    stats = values.groupby("event_id")["value"].mean()
-    t.mark("event_stats")
+        t.mark("event_stats")
+        # stats = values.groupby("event_id")["value"].mean()
+        # (stats,) = dask.compute(stats)
+        t.mark("event_stats")
 
-    t.record("results.csv")
+        t.record("results.csv")
+
+    finally:
+        client.profile(filename="dask-profile.html")
 
     client.close()
 

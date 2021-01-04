@@ -19,10 +19,12 @@
 
 import dask.distributed
 import os
+import tempfile
 
 from . import data
 
 _dask_client = None
+_tmpdir = None
 
 
 def GadiClient(threads=1):
@@ -31,22 +33,23 @@ def GadiClient(threads=1):
     If run on a login node it will check the PBS resources to know how many
     CPUs and the amount of memory that is available.
     """
-    global _dask_client
+    global _dask_client, _tmpdir
+
     if _dask_client is None:
+        _tmpdir = tempfile.TemporaryDirectory("dask-worker-space")
+
         if os.environ["HOSTNAME"].startswith("gadi-login"):
             _dask_client = dask.distributed.Client(
-                n_workers=1,
+                n_workers=2,
                 threads_per_worker=threads,
-                memory_limit="500mb",
-                local_directory=os.path.join(os.environ["TMPDIR"], "dask-worker-space"),
+                memory_limit="1000mb",
+                local_directory=_tmpdir.name,
             )
         else:
             _dask_client = dask.distributed.Client(
                 n_workers=int(os.environ["PBS_NCPUS"]) // threads,
                 threads_per_worker=threads,
                 memory_limit=int(os.environ["PBS_VMEM"]) / int(os.environ["PBS_NCPUS"]),
-                local_directory=os.path.join(
-                    os.environ["PBS_JOBFS"], "dask-worker-space"
-                ),
+                local_directory=_tmpdir.name,
             )
     return _dask_client

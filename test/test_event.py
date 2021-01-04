@@ -59,6 +59,8 @@ def test_find_events():
     da = da.chunk({"x": 1, "time": 2})
     events = find_events(da > 0, min_duration=3)
 
+    print(events)
+
     events = events.set_index(["time", "x"])
     assert events["event_duration"].loc[1, 0] == 3
     assert len(events) == 1
@@ -103,7 +105,7 @@ def test_find_events_dask():
     )
 
     da_dask = da.chunk({"x": 1, "time": 3})
-    events = find_events(da_dask > 0, min_duration=3, use_dask=True).compute()
+    events = find_events(da_dask > 0, min_duration=3, use_dask=True)
 
     # Results are t, x, length
     numpy.testing.assert_array_equal(events.to_numpy(), [[1, 0, 3], [0, 1, 4]])
