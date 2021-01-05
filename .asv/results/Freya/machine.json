@@ -1,0 +1,9 @@
+{
+    "arch": "x86_64",
+    "cpu": "AMD Ryzen 5 3600X 6-Core Processor",
+    "machine": "Freya",
+    "num_cpu": "12",
+    "os": "Linux 4.4.0-19041-Microsoft",
+    "ram": "16726988",
+    "version": 1
+}
