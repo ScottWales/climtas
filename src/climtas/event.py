@@ -104,6 +104,9 @@ def find_events(da: xarray.DataArray, min_duration: int = 1) -> pandas.DataFrame
     t += 1
     add_events(duration > 0)
 
+    if len(records) == 0:
+        return None
+
     return pandas.concat(records, ignore_index=True)
 
 

@@ -79,5 +79,21 @@
         "version": "364ac7c62ba036563517fdb59f62d4ce79f49fe8d6476f286494b9671c236610",
         "warmup_time": -1
     },
+    "event.EventSuite.time_find_event": {
+        "code": "class EventSuite:\n    def time_find_event(self):\n        events = climtas.event.find_events(self.data > 0.9, min_duration=4)\n        dask.compute(events)\n\n    def setup(self):\n        self.data = sample_data(years=1, freq=\"D\")",
+        "min_run_count": 2,
+        "name": "event.EventSuite.time_find_event",
+        "number": 0,
+        "param_names": [],
+        "params": [],
+        "processes": 2,
+        "repeat": 0,
+        "sample_time": 0.01,
+        "timeout": 60.0,
+        "type": "time",
+        "unit": "seconds",
+        "version": "a231d487f53daed34d1f991be54d797f3e1f15a79e7d0a811686326b16fc028e",
+        "warmup_time": -1
+    },
     "version": 2
 }
