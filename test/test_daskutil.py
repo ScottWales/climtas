@@ -29,4 +29,4 @@ def test_visualize_block():
     s = s + 1
     v = visualize_block(s)
 
-    assert 'label="add-#0"' in v.source
+    assert "label=add" in v.source
