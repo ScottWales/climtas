@@ -31,6 +31,7 @@ requirements:
         - cfunits
         - mule
         - sparse
+        - python-graphviz
 
 test:
     imports:
