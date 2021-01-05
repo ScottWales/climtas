@@ -58,7 +58,9 @@ def throttled_compute(arr: ArrayVar, *, n: int, name: T.Hashable = None) -> Arra
     # Compute chunks N at a time
     for x in _grouper(top_layer, n):
         x = [xx for xx in x if xx is not None]
-        values = schedule(obj.dask, list(x))
+
+        graph = obj.dask.cull(set(x))
+        values = schedule(graph, list(x))
         result.update(dict(zip(x, values)))
 
     # Build a new dask graph
@@ -76,12 +78,17 @@ def throttled_compute(arr: ArrayVar, *, n: int, name: T.Hashable = None) -> Arra
     return obj
 
 
-def visualize_block(arr: dask.array.Array) -> graphviz.Digraph:
+def visualize_block(arr: dask.array.Array, sizes=True) -> graphviz.Digraph:
     """
     Visualise the graph of a single chunk from 'arr'
 
     In a Jupyter notebook the graph will automatically display, otherwise use
     :meth:`graphviz.Digraph.render` to create an image.
+
+    Args:
+        arr: Array to visualise
+        sizes: Calculate the sizes of each node and display as the node label
+               if True
     """
     import dask.dot
 
@@ -91,6 +98,40 @@ def visualize_block(arr: dask.array.Array) -> graphviz.Digraph:
     block = next(iter(layer.keys()))
     culled = graph.cull(set([block]))
 
-    graph = dask.highlevelgraph.to_graphviz(culled)
+    attrs = {}
+    if sizes:
+        attrs = graph_sizes(arr)
+
+    graph = dask.dot.to_graphviz(culled, data_attributes=attrs)
 
     return graph
+
+
+def graph_sizes(arr: dask.array.Array) -> T.Dict[T.Hashable, T.Dict]:
+    """
+    Get the node sizes for each node in arr's Dask graph, to be used in
+    visualisation functions
+
+    Sizes are returned using the 'label' graphviz attribute
+
+    >>> a = dask.array.zeros((10,10), chunks=(5,5))
+    >>> sizes = graph_sizes(a)
+    >>> dask.dot.to_graphviz(a.dask, data_attributes=sizes)
+
+    Note: All nodes will be computed to calculate the size
+    """
+
+    keys = list(arr.dask.keys())
+    sizes = dict(
+        zip(
+            keys,
+            [
+                {"label": dask.utils.format_bytes(x.nbytes)}
+                if isinstance(x, numpy.ndarray)
+                else {}
+                for x in dask.get(arr.dask, keys)
+            ],
+        )
+    )
+
+    return sizes
