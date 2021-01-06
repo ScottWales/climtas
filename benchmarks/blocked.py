@@ -1,4 +1,6 @@
 import climtas
+import dask
+import tempfile
 from .sample import sample_data
 
 
@@ -25,3 +27,23 @@ class ResampleSuite:
 
     def time_blocked(self):
         climtas.blocked.blocked_resample(self.data, time=4).mean().load()
+
+
+class GroupbyDistributedSuite(GroupbySuite):
+    def setup(self):
+        self.tmpdir = tempfile.TemporaryDirectory()
+        self.client = dask.distributed.Client(local_directory=self.tmpdir.name)
+        super().setup()
+
+    def teardown(self):
+        self.client.close()
+
+
+class ResampleDistributedSuite(ResampleSuite):
+    def setup(self):
+        self.tmpdir = tempfile.TemporaryDirectory()
+        self.client = dask.distributed.Client(local_directory=self.tmpdir.name)
+        super().setup()
+
+    def teardown(self):
+        self.client.close()
