@@ -52,16 +52,16 @@ jobs:
             - checkout
             - run: |
                 cd ~
-                mkdir -p bin
+                mkdir -p bin micromamba
                 wget -qO- https://micromamba.snakepit.net/api/micromamba/linux-64/latest | tar -xvj bin/micromamba
-                ~/bin/micromamba shell init -s bash -p ~/micromamba
-            - run: |
-                source ~/.bashrc
-                micromamba install mypy xarray
+                eval "$(~/bin/micromamba shell hook -s bash -p ~/micromamba)"
+                micromamba activate
+                micromamba install mypy xarray -c conda-forge
             - run:
                 name: Type checking with mypy
                 command: |
-                    source ~/.bashrc
+                    eval "$(~/bin/micromamba shell hook -s bash -p ~/micromamba)"
+                    micromamba activate
                     mypy
                 when: always
 
