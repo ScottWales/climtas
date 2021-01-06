@@ -38,6 +38,7 @@ jobs:
                 ~/bin/micromamba shell init -s bash -p ~/micromamba
             - run: |
                 source ~/.bashrc
+                micromamba --help
                 micromamba activate
                 micromamba install black
             - run:
