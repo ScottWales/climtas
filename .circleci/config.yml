@@ -28,7 +28,7 @@ jobs:
                     - '*/*.tar.bz2'
     black-check:
         docker:
-            - image: cimg/base
+            - image: cimg/base:2020.01
         steps:
             - checkout
             - run: |
@@ -45,7 +45,7 @@ jobs:
                 when: always
     mypy-check:
         docker:
-            - image: cimg/base
+            - image: cimg/base:2020.01
         steps:
             - checkout
             - run: |
