@@ -28,23 +28,37 @@ jobs:
                     - '*/*.tar.bz2'
     black-check:
         docker:
-            - image: continuumio/miniconda3
+            - image: cimg/base
         steps:
             - checkout
-            - run: conda install black
+            - run: |
+                wget -qO- https://micromamba.snakepit.net/api/micromamba/linux-64/latest | tar -xvj ~/micromamba
+                ~/micromamba shell init -s bash -p ~/mamba
+            - run: |
+                ~/micromamba activate
+                micromamba install black
             - run:
                 name: Checking if 'black' needs to be run
-                command: black --check --diff .
+                command: |
+                    ~/micromamba activate
+                    black --check --diff .
                 when: always
     mypy-check:
         docker:
-            - image: continuumio/miniconda3
+            - image: cimg/base
         steps:
             - checkout
-            - run: conda install mypy xarray
+            - run: |
+                wget -qO- https://micromamba.snakepit.net/api/micromamba/linux-64/latest | tar -xvj ~/micromamba
+                ~/micromamba shell init -s bash -p ~/mamba
+            - run: |
+                ~/micromamba activate
+                micromamba install mypy xarray
             - run:
                 name: Type checking with mypy
-                command: mypy
+                command: |
+                    ~/micromamba activate
+                    mypy
                 when: always
 
     publish:
@@ -64,16 +78,16 @@ workflows:
         jobs:
             - black-check
             - mypy-check
-            - build:
-                filters:
-                    tags:
-                        only: /.*/
-            - publish:
-                context: conda-publish
-                requires:
-                    - build
-                filters:
-                    tags:
-                        only: /.*/
-                    branches:
-                        ignore: /.*/
+            # - build:
+            #     filters:
+            #         tags:
+            #             only: /.*/
+            # - publish:
+            #     context: conda-publish
+            #     requires:
+            #         - build
+            #     filters:
+            #         tags:
+            #             only: /.*/
+            #         branches:
+            #             ignore: /.*/
