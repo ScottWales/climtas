@@ -35,17 +35,13 @@ jobs:
                 cd ~
                 mkdir -p bin micromamba
                 wget -qO- https://micromamba.snakepit.net/api/micromamba/linux-64/latest | tar -xvj bin/micromamba
-                # ~/bin/micromamba shell init -s bash -p ~/micromamba
-            - run: |
-                ~/bin/micromamba shell hook -s bash -p ~/micromamba
                 eval "$(~/bin/micromamba shell hook -s bash -p ~/micromamba)"
-                micromamba --help
                 micromamba activate
-                micromamba install black
+                micromamba install black -c conda-forge
             - run:
                 name: Checking if 'black' needs to be run
                 command: |
-                    source ~/.bashrc
+                    eval "$(~/bin/micromamba shell hook -s bash -p ~/micromamba)"
                     micromamba activate
                     black --check --diff .
                 when: always
