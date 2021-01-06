@@ -38,11 +38,13 @@ jobs:
                 ~/bin/micromamba shell init -s bash -p ~/micromamba
             - run: |
                 source ~/.bashrc
+                micromamba activate
                 micromamba install black
             - run:
                 name: Checking if 'black' needs to be run
                 command: |
                     source ~/.bashrc
+                    micromamba activate
                     black --check --diff .
                 when: always
     mypy-check:
