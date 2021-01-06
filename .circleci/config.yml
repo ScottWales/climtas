@@ -2,18 +2,28 @@ version: 2
 jobs:
     build:
         docker:
-            - image: continuumio/miniconda3
+            - image: cimg/base:2020.01
         environment:
             TEST_OUTPUT: /tmp/artifacts
         steps:
             - checkout
-            - run: conda install conda-build conda-verify codecov
             - run: |
+                cd ~
+                mkdir -p bin micromamba
+                wget -qO- https://micromamba.snakepit.net/api/micromamba/linux-64/latest | tar -xvj bin/micromamba
+                eval "$(~/bin/micromamba shell hook -s bash -p ~/micromamba)"
+                micromamba activate
+                micromamba install conda-build conda-verify codecov -c conda-forge
+            - run: |
+                eval "$(~/bin/micromamba shell hook -s bash -p ~/micromamba)"
+                micromamba activate
                 mkdir -p ${TEST_OUTPUT}
                 conda build . -c conda-forge -c coecms
             - run: 
                 name: Upload codecov
                 command: |
+                    eval "$(~/bin/micromamba shell hook -s bash -p ~/micromamba)"
+                    micromamba activate
                     coverage combine ${TEST_OUTPUT}/coverage
                     coverage xml -o ${TEST_OUTPUT}/coverage.xml
                     codecov -f ${TEST_OUTPUT}/coverage.xml
@@ -67,13 +77,20 @@ jobs:
 
     publish:
         docker:
-            - image: continuumio/miniconda3
+            - image: cimg/base:2020.01
         steps:
             - attach_workspace:
                 at: /tmp/artifacts
-
-            - run: conda install anaconda-client
             - run: |
+                cd ~
+                mkdir -p bin micromamba
+                wget -qO- https://micromamba.snakepit.net/api/micromamba/linux-64/latest | tar -xvj bin/micromamba
+                eval "$(~/bin/micromamba shell hook -s bash -p ~/micromamba)"
+                micromamba activate
+                micromamba install anaconda-client -c conda-forge
+            - run: |
+                eval "$(~/bin/micromamba shell hook -s bash -p ~/micromamba)"
+                micromamba activate
                 anaconda --token "${ANACONDA_TOKEN}" upload --user "${ANACONDA_USER}" /tmp/artifacts/*/*.tar.bz2
 
 workflows:
@@ -82,16 +99,16 @@ workflows:
         jobs:
             - black-check
             - mypy-check
-            # - build:
-            #     filters:
-            #         tags:
-            #             only: /.*/
-            # - publish:
-            #     context: conda-publish
-            #     requires:
-            #         - build
-            #     filters:
-            #         tags:
-            #             only: /.*/
-            #         branches:
-            #             ignore: /.*/
+            - build:
+                filters:
+                    tags:
+                        only: /.*/
+            - publish:
+                context: conda-publish
+                requires:
+                    - build
+                filters:
+                    tags:
+                        only: /.*/
+                    branches:
+                        ignore: /.*/
