@@ -33,7 +33,7 @@ jobs:
             - store_test_results:
                 path: /tmp/artifacts/pytest
             - persist_to_workspace:
-                root: /opt/conda/conda-bld
+                root: /home/circleci/micromamba/conda-bld
                 paths: 
                     - '*/*.tar.bz2'
     black-check:
