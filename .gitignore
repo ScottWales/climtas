@@ -132,3 +132,4 @@ dmypy.json
 doc/_build
 PET*.RegridWeightGen.Log
 benchmark/*/log
+.asv/env
