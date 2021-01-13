@@ -14,18 +14,110 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from dask.base import tokenize
 import numpy
 import dask
+import dask.delayed
+import dask.optimization
 import xarray
 import pandas
 import typing as T
 import dask.array
 import dask.dataframe
+import itertools
 
 """Helper functions
 
 These functions are low-level, and mainly intended for internal use
 """
+
+
+def map_blocks_to_delayed(
+    da: xarray.DataArray,
+    func,
+    axis=None,
+    name="blocks-to-delayed",
+    args=[],
+    kwargs={},
+) -> T.List[T.Tuple[T.List[int], T.Any]]:
+    """
+    Run some function 'func' on each dask chunk of 'da'
+
+    The function is called like `func(da_block, offset=offset)` - `da_block` the chunk
+    to work on, with coordinates from `da`; and `offset`, the location of
+    `block` within `da`.
+
+    The function is wrapped as a :obj:`dask.delayed`, :func:`chunk_map` returns
+    a list of (offset, delayed result) for each chunk of `da`.
+
+    If you're wanting to convert the results back into an array, see
+    :func:`xarray.map_blocks` or :func:`dask.array.map_blocks`
+
+    >>> def func(da_chunk, offset):
+    ...    return da_chunk.mean().values
+
+    >>> da = xarray.DataArray(numpy.eye(10), dims=['x','y'])
+    >>> da = da.chunk({'x': 5})
+
+    >>> results = map_blocks_to_delayed(da, func)
+    >>> results #doctest: +ELLIPSIS
+    [([0, 0], Delayed(...)), ([5, 0], Delayed(...))]
+
+    >>> dask.compute(results)
+    ([([0, 0], array(0.1)), ([5, 0], array(0.1))],)
+
+    Args:
+        da: Input DataArray
+        func: Function to run
+        args, kwargs: Passed to func
+
+    Returns:
+        List of tuples with the chunk offset in `da` and a delayed result of
+        running `func` on that chunk
+    """
+    data = da.data
+    # data.dask = data.__dask_optimize__(data.__dask_graph__(), data.__dask_keys__())
+
+    offsets = []
+    block_id = []
+    for i in range(da.ndim):
+        chunks = data.chunks[i]
+        block_id.append(range(len(chunks)))
+        offsets.append(numpy.cumsum([0, *chunks[:-1]]))
+
+    results = []
+    for chunk in itertools.product(*block_id):
+        size = [data.chunks[d][chunk[d]] for d in range(da.ndim)]
+        offset = [offsets[d][chunk[d]] for d in range(da.ndim)]
+        block = data.blocks[chunk]
+
+        # block.dask, _ = dask.optimization.cull(block.__dask_graph__, block.__dask_layers__())
+        # mark = time.perf_counter()
+        # block.dask = block.__dask_optimize__(
+        #     block.__dask_graph__(), block.__dask_keys__()
+        # )
+        # print("opt", time.perf_counter() - mark)
+
+        coords = {
+            da.dims[d]: da.coords[da.dims[d]][offset[d] : offset[d] + block.shape[d]]
+            for d in range(da.ndim)
+        }
+
+        da_block = xarray.DataArray(
+            block, dims=da.dims, coords=coords, name=da.name, attrs=da.attrs
+        )
+
+        # da_block = da[
+        #     tuple(slice(offset[d], offset[d] + size[d]) for d in range(da.ndim))
+        # ]
+
+        name = name + "-" + tokenize(block.name)
+
+        result = dask.delayed(func, name=name)(da_block, *args, offset=offset, **kwargs)
+
+        results.append((offset, result))
+
+    return results
 
 
 def chunk_count(da: xarray.DataArray) -> float:
@@ -122,7 +214,11 @@ def throttle_futures(graph, key_list, optimizer=None, max_tasks=None):
 
 
 def locate_block_in_dataarray(
-    da: dask.array.Array, xda: xarray.DataArray, block_info: T.Dict[str, T.Any]
+    block: dask.array.Array,
+    name: str,
+    dims: T.List[str],
+    coords: T.Dict[T.Hashable, T.Any],
+    block_info: T.Dict[str, T.Any],
 ):
     """
     Locates the metadata of the current block
@@ -135,9 +231,21 @@ def locate_block_in_dataarray(
     Returns:
         xarray.DataArray with the block and its metadata
     """
-    meta = xda[tuple(slice(x0, x1) for x0, x1 in block_info["array-location"])]
+    if block_info is not None:
+        subset = {
+            d: slice(x0, x1) for d, (x0, x1) in zip(dims, block_info["array-location"])
+        }
 
-    return xarray.DataArray(da, name=meta.name, dims=meta.dims, coords=meta.coords)
+        out_coords = {}
+        for k, v in coords.items():
+            out_coords[k] = v.isel(
+                {kk: vv for kk, vv in subset.items() if kk in v.dims}
+            )
+
+    else:
+        out_coords = coords
+
+    return xarray.DataArray(block, name=name, dims=dims, coords=out_coords)
 
 
 def map_blocks_array_to_dataframe(
@@ -196,14 +304,27 @@ def map_blocks_array_to_dataframe(
         'func' to a block of 'array', in an arbitrary order
     """
 
+    if getattr(array, "npartitions", None) is None:
+        return func(array, *args, **kwargs)
+
     # Use the array map blocks, with a dummy meta (as we won't be making an array)
     mapped = dask.array.map_blocks(
         func, array, *args, **kwargs, meta=numpy.array((), dtype="i")
     )
 
+    return array_blocks_to_dataframe(mapped, meta)
+
+
+def array_blocks_to_dataframe(
+    array: dask.array.Array, meta: pandas.DataFrame
+) -> dask.dataframe.DataFrame:
+    """
+    Convert the blocks from a dask array to a dask dataframe
+    """
+
     # Grab the Dask graph from the array map
-    graph = mapped.dask
-    name = mapped.name
+    graph = array.dask
+    name = array.name
 
     # Flatten the results to 1d
     # Keys in the graph layer are (name, chunk_coord)
@@ -219,3 +340,88 @@ def map_blocks_array_to_dataframe(
     )
 
     return df
+
+
+from itertools import zip_longest
+
+
+def grouper(iterable, n):
+    "Collect data into fixed-length chunks or blocks"
+    # grouper('ABCDEFG', 3, 'x') --> ABC DEF Gxx"
+    args = [iter(iterable)] * n
+    return zip_longest(*args)
+
+
+# An array-like value for typing
+ArrayVar = T.TypeVar("ArrayVar", xarray.DataArray, dask.array.Array, numpy.ndarray)
+
+
+def throttled_compute(arr: ArrayVar, *, n: int, name: T.Hashable = None) -> ArrayVar:
+    """
+    Compute a Dask object N chunks at a time
+
+    Args:
+        obj: Object to compute
+        n: Number of chunks to process at once
+        name: Dask layer name to compute (default obj.name)
+
+    Returns:
+        'obj', with each chunk computed
+    """
+
+    # Copy the input in case it's a xarray object
+    obj = arr
+
+    if isinstance(arr, xarray.DataArray):
+        # Work on the data
+        obj = arr.data
+
+    if not hasattr(obj, "dask"):
+        # Short-circuit non-dask arrays
+        return arr
+
+    # Current dask scheduler
+    schedule = dask.base.get_scheduler(collections=[obj])
+
+    # Get the layer to work on
+    if name is None:
+        name = obj.name
+    top_layer = obj.dask.layers[name]
+
+    result = {}
+
+    # Compute chunks N at a time
+    for x in grouper(top_layer, n):
+        x = [xx for xx in x if xx is not None]
+        values = schedule(obj.dask, list(x))
+        result.update(dict(zip(x, values)))
+
+    # Build a new dask graph
+    layer = dask.highlevelgraph.BasicLayer(result)
+    graph = dask.highlevelgraph.HighLevelGraph.from_collections(name, layer)
+
+    obj.dask = graph
+
+    if isinstance(arr, xarray.DataArray):
+        # Add back metadata
+        obj = xarray.DataArray(
+            obj, name=arr.name, dims=arr.dims, coords=arr.coords, attrs=arr.attrs
+        )
+
+    return obj
+
+
+def visualize_block(arr: dask.array.Array):
+    """
+    Visualise the graph of a single chunk from 'arr'
+    """
+
+    name = arr.name
+    graph = arr.dask
+    layer = graph.layers[name]
+    block = next(layer.values())
+    culled = graph.cull(set(block))
+
+    graph = dask.dot.to_graphviz(culled)
+
+    return graph

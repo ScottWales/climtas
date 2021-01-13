@@ -1,0 +1,9 @@
+{
+    "arch": "x86_64",
+    "cpu": "Intel(R) Xeon(R) Platinum 8268 CPU @ 2.90GHz",
+    "machine": "gadi",
+    "num_cpu": "48",
+    "os": "Linux 4.18.0-240.1.1.el8.nci.x86_64",
+    "ram": "262432756",
+    "version": 1
+}

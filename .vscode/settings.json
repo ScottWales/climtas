@@ -1,5 +1,4 @@
 {
     "python.formatting.provider": "black",
     "python.testing.pytestEnabled": true,
-    "python.pythonPath": "/home/swales/miniconda3/envs/dev/bin/python"
 }
