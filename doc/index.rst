@@ -17,6 +17,8 @@ time domain with custom functions for `Xarray <https://xarray.pydata.org>`_ and
    api
    nci
 
+`Benchmark graphs <_static/asv/index.html>`_
+
 
 Indices and tables
 ==================
