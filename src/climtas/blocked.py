@@ -48,7 +48,7 @@ class BlockedResampler:
     created by the resampling, which is important for large datasets.
     """
 
-    def __init__(self, da: xarray.DataArray, dim: str, count: int):
+    def __init__(self, da: xarray.DataArray, dim: str = None, count: int = None):
         """
         Args:
             da (:class:`xarray.DataArray`): Input DataArray
@@ -137,6 +137,10 @@ class BlockedResampler:
                 v = v[:: self.count]
             result.coords[k] = v
 
+        # Set after we create 'result' - if the original name is None it will
+        # be replaced by the dask name, so results won't be identical to xarray
+        result.name = self.da.name
+
         return result
 
     def mean(self) -> xarray.DataArray:
@@ -170,21 +174,47 @@ def blocked_resample(da: xarray.DataArray, indexer=None, **kwargs) -> BlockedRes
     >>> time = pandas.date_range('20010101','20010110', freq='H', closed='left')
     >>> hourly = xarray.DataArray(numpy.random.random(time.size), coords=[('time', time)])
 
+    >>> blocked_daily_max = blocked_resample(hourly, time='1D').max()
+    >>> xarray_daily_max = hourly.resample(time='1D').max()
+    >>> xarray.testing.assert_identical(blocked_daily_max, xarray_daily_max)
+
     >>> blocked_daily_max = blocked_resample(hourly, time=24).max()
     >>> xarray_daily_max = hourly.resample(time='1D').max()
-    >>> xarray.testing.assert_equal(blocked_daily_max, xarray_daily_max)
+    >>> xarray.testing.assert_identical(blocked_daily_max, xarray_daily_max)
 
     Args:
         da (:class:`xarray.DataArray`): Resample target
-        indexer/kwargs (Dict[dim, count]): Mapping of dimension name to count along that axis
+        indexer/kwargs (Dict[dim, count]): Mapping of dimension name to count
+            along that axis. May be an integer or a time interval understood by
+            pandas (that interval must evenly divide the dataset).
 
     Returns:
         :class:`BlockedResampler`
     """
     if indexer is None:
         indexer = kwargs
-    assert len(indexer) == 1
+    else:
+        indexer = {**indexer, **kwargs}
+
+    if len(indexer) != 1:
+        raise Exception(
+            f"Only one dimension can be resampled at a time, received {indexer}"
+        )
+
     dim, count = list(indexer.items())[0]
+
+    if not isinstance(count, int):
+        # Something like a pandas period, resample the time axis to get the count
+        counts = da[dim].resample({dim: count}).count()
+        if counts.min() != counts.max():
+            raise Exception(
+                f"Period '{count}' does not evenly divide dimension '{dim}'"
+            )
+        count = counts.values[0]
+
+    if da.sizes[dim] % count != 0:
+        raise Exception(f"Period '{count}' does not evenly divide dimension '{dim}'")
+
     return BlockedResampler(da, dim=dim, count=count)
 
 

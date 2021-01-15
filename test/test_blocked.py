@@ -38,6 +38,22 @@ def sample(request):
     return samples[request.param]
 
 
+@pytest.fixture(params=["daily", "daily_dask"])
+def sample_hr(request):
+    time = pandas.date_range("20020101", "20050101", freq="H", closed="left")
+
+    samples = {
+        "daily": xarray.DataArray(
+            numpy.random.random(time.size), coords=[("time", time)]
+        ),
+        "daily_dask": xarray.DataArray(
+            dask.array.random.random(time.size), coords=[("time", time)]
+        ),
+    }
+
+    return samples[request.param]
+
+
 def test_groupby_dayofyear(sample):
     time = pandas.date_range("20020101", "20050101", freq="D", closed="left")
     daily = xarray.DataArray(numpy.random.random(time.size), coords=[("time", time)])
@@ -169,6 +185,20 @@ def test_resample_safety(sample):
     assert sliced.size == 24
     with pytest.raises(Exception):
         blocked_resample(sliced, time=24)
+
+
+def test_resample(sample_hr):
+    expected = sample_hr.resample(time="D").mean()
+
+    result = blocked_resample(sample_hr, time=24).mean()
+    xarray.testing.assert_equal(expected, result)
+    xarray.testing.assert_identical(expected, result)
+
+    result = blocked_resample(sample_hr, time="D").mean()
+    xarray.testing.assert_identical(expected, result)
+
+    result = blocked_resample(sample_hr, {"time": "D"}).mean()
+    xarray.testing.assert_identical(expected, result)
 
 
 def test_groupby_safety(sample):
