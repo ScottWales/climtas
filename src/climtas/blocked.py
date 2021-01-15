@@ -48,7 +48,7 @@ class BlockedResampler:
     created by the resampling, which is important for large datasets.
     """
 
-    def __init__(self, da: xarray.DataArray, dim: str = None, count: int = None):
+    def __init__(self, da: xarray.DataArray, dim: str, count: int):
         """
         Args:
             da (:class:`xarray.DataArray`): Input DataArray
