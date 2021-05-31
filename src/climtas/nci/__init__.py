@@ -21,8 +21,6 @@ import dask.distributed
 import os
 import tempfile
 
-from . import data
-
 _dask_client = None
 _tmpdir = None
 
@@ -46,10 +44,11 @@ def GadiClient(threads=1):
                 local_directory=_tmpdir.name,
             )
         else:
+            workers = int(os.environ["PBS_NCPUS"]) // threads
             _dask_client = dask.distributed.Client(
-                n_workers=int(os.environ["PBS_NCPUS"]) // threads,
+                n_workers=workers,
                 threads_per_worker=threads,
-                memory_limit=int(os.environ["PBS_VMEM"]) / int(os.environ["PBS_NCPUS"]),
+                memory_limit=int(os.environ["PBS_VMEM"]) / workers,
                 local_directory=_tmpdir.name,
             )
     return _dask_client
