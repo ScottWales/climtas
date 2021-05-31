@@ -307,7 +307,14 @@ def horiz_attrs(lat, lon):
 
 @pytest.mark.parametrize(
     "weight_gen,weight_args",
-    [(esmf_generate_weights, {}), (esmf_generate_weights, {"method": "patch"})],
+    [
+        (esmf_generate_weights, {}),
+        pytest.param(
+            esmf_generate_weights,
+            {"method": "patch"},
+            marks=pytest.mark.xfail(reason="Fails with esmf >8.0.1"),
+        ),
+    ],
 )
 def test_nco(tmpdir, weight_gen, weight_args):
     alats = 10
