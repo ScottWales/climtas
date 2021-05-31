@@ -106,3 +106,22 @@ def test_throttled_compute():
     (dc,) = dask.compute(s)
     numpy.testing.assert_array_equal(tc, dc)
     assert tc.name == "foo"
+
+
+def test_array_blocks_to_dataframe():
+    meta = pandas.DataFrame({"a": [0, 1, 2], "b": [2, 3, 4]})
+
+    array = numpy.array([0, 1, 2, 3])
+    a = dask.array.from_array(array, chunks=(2,))
+
+    def mapper(x):
+        if x[0] == 0:
+            return meta.iloc[0:1]
+        else:
+            return meta.iloc[1:]
+
+    b = dask.array.map_blocks(mapper, a, dtype="object")
+
+    result = array_blocks_to_dataframe(b, meta).compute()
+
+    assert meta.equals(result)

@@ -41,7 +41,7 @@ def throttled_compute(arr: ArrayVar, *, n: int, name: T.Hashable = None) -> Arra
         # Work on the data
         obj = arr.data
 
-    if not hasattr(obj, "dask"):
+    if not hasattr(obj, "dask") or isinstance(obj, numpy.ndarray):
         # Short-circuit non-dask arrays
         return arr
 
@@ -64,7 +64,7 @@ def throttled_compute(arr: ArrayVar, *, n: int, name: T.Hashable = None) -> Arra
         result.update(dict(zip(x, values)))
 
     # Build a new dask graph
-    layer = dask.highlevelgraph.BasicLayer(result)
+    layer = dask.highlevelgraph.MaterializedLayer(result)
     graph = dask.highlevelgraph.HighLevelGraph.from_collections(name, layer)
 
     obj.dask = graph

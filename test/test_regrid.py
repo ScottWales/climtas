@@ -292,6 +292,13 @@ def test_esmf_generate_weights():
     numpy.testing.assert_array_equal(w.mask_b, b.notnull().data.ravel())
 
 
+def horiz_attrs(lat, lon):
+    lat.attrs["units"] = "degrees_north"
+    lat.attrs["standard_name"] = "latitude"
+    lon.attrs["units"] = "degrees_east"
+    lon.attrs["standard_name"] = "longitude"
+
+
 @pytest.mark.parametrize(
     "weight_gen,weight_args",
     [(esmf_generate_weights, {}), (esmf_generate_weights, {"method": "patch"})],
@@ -309,8 +316,7 @@ def test_nco(tmpdir, weight_gen, weight_args):
             "lon": numpy.linspace(0, 360, alons, endpoint=False),
         },
     )
-    a.lat.attrs["units"] = "degrees_north"
-    a.lon.attrs["units"] = "degrees_east"
+    horiz_attrs(a.lat, a.lon)
 
     a[1:3, 3:9] = numpy.nan
 
@@ -326,10 +332,13 @@ def test_nco(tmpdir, weight_gen, weight_args):
             "lon": numpy.linspace(-180, 180, blons, endpoint=False),
         },
     )
-    b.lat.attrs["units"] = "degrees_north"
-    b.lon.attrs["units"] = "degrees_east"
+
+    print(a)
+    print(b)
+    horiz_attrs(b.lat, b.lon)
 
     w = weight_gen(a, b, **weight_args)
+    print(w)
 
     c = regrid(a, weights=w)
 

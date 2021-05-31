@@ -332,7 +332,7 @@ def array_blocks_to_dataframe(
     layer = {}
     for i, v in enumerate(graph.layers[name].values()):
         layer[(name, i)] = v
-    graph.layers[name] = layer
+    graph.layers[name] = dask.highlevelgraph.MaterializedLayer(layer)
 
     # Low level dask dataframe constructor
     df = dask.dataframe.core.new_dd_object(
@@ -397,7 +397,7 @@ def throttled_compute(arr: ArrayVar, *, n: int, name: T.Hashable = None) -> Arra
         result.update(dict(zip(x, values)))
 
     # Build a new dask graph
-    layer = dask.highlevelgraph.BasicLayer(result)
+    layer = dask.highlevelgraph.MaterializedLayer(result)
     graph = dask.highlevelgraph.HighLevelGraph.from_collections(name, layer)
 
     obj.dask = graph

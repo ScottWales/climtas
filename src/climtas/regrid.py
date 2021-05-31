@@ -120,7 +120,7 @@ def cdo_generate_weights(
         )
 
         # Grab the weights file it outputs as a xarray.Dataset
-        weights = xarray.open_dataset(weight_file.name)
+        weights = xarray.open_dataset(weight_file.name, engine="netcdf4")
         return weights
 
     except subprocess.CalledProcessError as e:
@@ -162,17 +162,17 @@ def esmf_generate_weights(
             ESMF_RegridWeightGen
     """
     # Make some temporary files that we'll feed to ESMF
-    source_file = tempfile.NamedTemporaryFile()
-    target_file = tempfile.NamedTemporaryFile()
-    weight_file = tempfile.NamedTemporaryFile()
+    source_file = tempfile.NamedTemporaryFile(suffix=".nc")
+    target_file = tempfile.NamedTemporaryFile(suffix=".nc")
+    weight_file = tempfile.NamedTemporaryFile(suffix=".nc")
 
     rwg = "ESMF_RegridWeightGen"
 
     if "_FillValue" not in source_grid.encoding:
-        source_grid.encoding["_FillValue"] = -999999
+        source_grid.encoding["_FillValue"] = -1e20
 
     if "_FillValue" not in target_grid.encoding:
-        target_grid.encoding["_FillValue"] = -999999
+        target_grid.encoding["_FillValue"] = -1e20
 
     try:
         source_grid.to_netcdf(source_file.name)
@@ -211,7 +211,7 @@ def esmf_generate_weights(
         out = subprocess.check_output(args=command, stderr=subprocess.PIPE)
         print(out.decode("utf-8"))
 
-        weights = xarray.open_dataset(weight_file.name)
+        weights = xarray.open_dataset(weight_file.name, engine="netcdf4")
         # Load so we can delete the temp file
         return weights.load()
 
