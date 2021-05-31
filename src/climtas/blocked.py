@@ -32,7 +32,7 @@ class DataArrayFunction(Protocol):
 
 
 class NumpyFunction(Protocol):
-    def __call__(self, __d: numpy.array, axis: int, **kwargs) -> numpy.array:
+    def __call__(self, __d: numpy.ndarray, axis: int, **kwargs) -> numpy.ndarray:
         ...
 
 
