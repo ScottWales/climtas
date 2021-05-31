@@ -15,12 +15,18 @@
 # limitations under the License.
 from __future__ import print_function
 
-from climtas.regrid import *
+from climtas.regrid import (
+    esmf_generate_weights,
+    cdo_generate_weights,
+    identify_grid,
+    regrid,
+)
 import xarray
 import dask.array
 import numpy
 import numpy.testing
 import pytest
+import subprocess
 
 
 def test_cdo_generate_weights(tmpdir):
@@ -333,8 +339,6 @@ def test_nco(tmpdir, weight_gen, weight_args):
         },
     )
 
-    print(a)
-    print(b)
     horiz_attrs(b.lat, b.lon)
 
     w = weight_gen(a, b, **weight_args)

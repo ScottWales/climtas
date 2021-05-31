@@ -120,13 +120,13 @@ def map_blocks_to_delayed(
     return results
 
 
-def chunk_count(da: xarray.DataArray) -> float:
+def chunk_count(da: xarray.DataArray) -> numpy.number:
     """
     Returns the number of chunks in the dataset
     """
     if da.chunks is None:
         raise Exception
-    return numpy.prod([len(c) for c in da.chunks])
+    return numpy.prod([len(c) for c in da.chunks]).astype("i")
 
 
 def chunk_size(da: xarray.DataArray) -> float:
@@ -376,7 +376,7 @@ def throttled_compute(arr: ArrayVar, *, n: int, name: T.Hashable = None) -> Arra
         # Work on the data
         obj = arr.data
 
-    if not hasattr(obj, "dask"):
+    if not hasattr(obj, "dask") or isinstance(arr, numpy.ndarray):
         # Short-circuit non-dask arrays
         return arr
 
