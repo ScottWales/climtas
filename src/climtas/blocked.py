@@ -32,7 +32,9 @@ class DataArrayFunction(Protocol):
 
 
 class NumpyFunction(Protocol):
-    def __call__(self, __d: numpy.ndarray, axis: int, **kwargs) -> numpy.ndarray:
+    def __call__(
+        self, __d: numpy.typing.ArrayLike, axis: int, **kwargs
+    ) -> numpy.ndarray:
         ...
 
 
@@ -144,20 +146,28 @@ class BlockedResampler:
         return result
 
     def mean(self) -> xarray.DataArray:
-        """Reduce the samples using numpy.mean"""
-        return self.reduce(numpy.mean)
+        """Reduce the samples using :func:`numpy.mean`"""
+        return self.reduce(numpy.mean)  # type:ignore
 
     def min(self) -> xarray.DataArray:
-        """Reduce the samples using numpy.min"""
+        """Reduce the samples using :func:`numpy.min`"""
         return self.reduce(numpy.min)
 
     def max(self) -> xarray.DataArray:
-        """Reduce the samples using numpy.max"""
+        """Reduce the samples using :func:`numpy.max`"""
         return self.reduce(numpy.max)
 
+    def nanmin(self) -> xarray.DataArray:
+        """Reduce the samples using :func:`numpy.nanmin`"""
+        return self.reduce(numpy.nanmin)
+
+    def nanmax(self) -> xarray.DataArray:
+        """Reduce the samples using :func:`numpy.nanmax`"""
+        return self.reduce(numpy.nanmax)
+
     def sum(self) -> xarray.DataArray:
-        """Reduce the samples using numpy.count"""
-        return self.reduce(numpy.sum)
+        """Reduce the samples using :func:`numpy.sum`"""
+        return self.reduce(numpy.sum)  # type:ignore
 
 
 def blocked_resample(da: xarray.DataArray, indexer=None, **kwargs) -> BlockedResampler:

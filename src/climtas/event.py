@@ -212,9 +212,9 @@ def find_events_block(
 
     t = 0
     for t in range(da.sizes["time"]):
-        current_step = numpy.atleast_1d(
-            numpy.take(da.data, t, axis=da.get_axis_num("time"))
-        )
+        axis = da.get_axis_num("time")
+        assert isinstance(axis, int)
+        current_step = dask.array.atleast_1d(numpy.take(da.data, t, axis=axis))
 
         try:
             current_step = current_step.compute()
