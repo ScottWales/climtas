@@ -112,3 +112,11 @@ workflows:
                         only: /.*/
                     branches:
                         ignore: /.*/
+        triggers:
+            - schedule:
+                cron: "0 0 1 * *"
+                filters:
+                    branches:
+                        only:
+                            - master
+
