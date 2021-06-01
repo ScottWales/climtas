@@ -112,6 +112,9 @@ workflows:
                         only: /.*/
                     branches:
                         ignore: /.*/
+    monthly-check:
+        jobs:
+            - build
         triggers:
             - schedule:
                 cron: "0 0 1 * *"
