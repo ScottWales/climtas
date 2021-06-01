@@ -28,8 +28,11 @@ _tmpdir = None
 def GadiClient(threads=1):
     """Start a Dask client on Gadi
 
-    If run on a login node it will check the PBS resources to know how many
+    If run on a compute node it will check the PBS resources to know how many
     CPUs and the amount of memory that is available.
+
+    If run on a login node it will ask for 2 workers each with a 1GB memory
+    limit
     """
     global _dask_client, _tmpdir
 

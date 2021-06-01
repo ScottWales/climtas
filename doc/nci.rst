@@ -8,8 +8,3 @@ climtas.nci
 -----------
 .. automodule:: climtas.nci
     :members:
-
-climtas.nci.data
-----------------
-.. automodule:: climtas.nci.data
-    :members:
