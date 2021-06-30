@@ -788,7 +788,7 @@ def approx_percentile(
     if isinstance(da, xarray.DataArray) and isinstance(da.data, dask.array.Array):
         # Xarray+Dask
         if axis is None:
-            axis = da.get_axis_num(dim)
+            axis = T.cast(int, da.get_axis_num(dim))
         data = dask_approx_percentile(da.data, pcts=q, axis=axis)
         dims = ["percentile", *[d for i, d in enumerate(da.dims) if i != axis]]
         return xarray.DataArray(
