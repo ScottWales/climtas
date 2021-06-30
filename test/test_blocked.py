@@ -22,7 +22,7 @@ from climtas.helpers import *
 import pytest
 
 
-@pytest.fixture(params=["daily", "daily_dask"])
+@pytest.fixture(params=["daily", "daily_2d", "daily_dask", "daily_dask_2d"])
 def sample(request):
     time = pandas.date_range("20020101", "20050101", freq="D", closed="left")
 
@@ -30,8 +30,16 @@ def sample(request):
         "daily": xarray.DataArray(
             numpy.random.random(time.size), coords=[("time", time)]
         ),
+        "daily_2d": xarray.DataArray(
+            numpy.random.random((time.size, 10)),
+            coords=[("time", time), ("x", numpy.arange(10))],
+        ),
         "daily_dask": xarray.DataArray(
             dask.array.random.random(time.size), coords=[("time", time)]
+        ),
+        "daily_dask_2d": xarray.DataArray(
+            dask.array.random.random((time.size, 10), chunks=(100, 5)),
+            coords=[("time", time), ("x", numpy.arange(10))],
         ),
     }
 
@@ -155,6 +163,9 @@ def test_groupby_percentile(sample):
 
 
 def test_groupby_apply(sample):
+    if sample.ndim == 2:
+        # Only testing 1d
+        return
 
     blocked_double = blocked_groupby(sample, time="dayofyear").apply(lambda x: x * 2)
     xarray.testing.assert_equal(sample * 2, blocked_double)
@@ -169,6 +180,9 @@ def test_groupby_apply(sample):
 
 
 def test_resample_safety(sample):
+    if sample.ndim == 2:
+        # Only testing 1d
+        return
 
     # Not a coordinate
     sliced = sample
@@ -219,3 +233,30 @@ def test_groupby_safety(sample):
     sliced = xarray.concat([sample[0:15], sample[17:365]], dim="time")
     with pytest.raises(Exception):
         blocked_groupby(sliced, time="dayofyear")
+
+
+def test_percentile(sample):
+    a = approx_percentile(sample, 90, dim="time")
+
+    if isinstance(sample.data, dask.array.Array):
+        a = a[0, ...]
+
+        b = numpy.zeros(sample[0].shape)
+        for ii in numpy.ndindex(b.shape):
+            b[ii] = dask.array.percentile(
+                sample.data[
+                    numpy.s_[
+                        :,
+                    ]
+                    + ii
+                ],
+                90,
+            )[0]
+    else:
+        b = numpy.percentile(
+            sample.data,
+            90,
+            axis=0,
+        )
+
+    numpy.testing.assert_array_equal(a, b)
