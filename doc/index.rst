@@ -17,8 +17,9 @@ Contents
    :caption: Contents:
 
    groupby
-   resample
    percentile
+   regrid
+   resample
 
 
 Reference
