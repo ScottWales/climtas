@@ -640,7 +640,9 @@ def blocked_groupby(da: xarray.DataArray, indexer=None, **kwargs) -> BlockedGrou
         raise NotImplementedError(f"Grouping {grouping} is not implemented")
 
 
-def _merge_approx_percentile(chunk_pcts, chunk_counts, finalpcts, pcts, axis):
+def _merge_approx_percentile(
+    chunk_pcts, chunk_counts, finalpcts, pcts, axis, interpolation
+):
     """
     Merge percentile blocks together
 
@@ -684,19 +686,28 @@ def _merge_approx_percentile(chunk_pcts, chunk_counts, finalpcts, pcts, axis):
                     ]
                     + kk
                 ],
+                interpolation=interpolation,
             )
 
     return out
 
 
-def dask_approx_percentile(array: dask.array.array, pcts, axis: int):
+def dask_approx_percentile(
+    array: dask.array.array,
+    pcts,
+    axis: int,
+    interpolation="linear",
+    skipna=True,
+):
     """
-    Get the approximate percentiles of a Dask array along 'axis'
+    Get the approximate percentiles of a Dask array along 'axis', using the 'dask'
+    method of :func:`dask.array.percentile`.
 
     Args:
         array: Dask Nd array
         pcts: List of percentiles to calculate, within the interval [0,100]
         axis: Axis to reduce
+        skipna: Ignore NaN values (like :func:`numpy.nanpercentile`) if true
 
     Returns:
         Dask array with first axis the percentiles from 'pcts', remaining axes from
@@ -717,13 +728,19 @@ def dask_approx_percentile(array: dask.array.array, pcts, axis: int):
     # Add the percentile size to the start of 'chunks'
     chunks.insert(0, len(pcts))
 
+    if skipna:
+        pctile = numpy.nanpercentile
+    else:
+        pctile = numpy.percentile
+
     # The percentile of each chunk along 'axis'
     chunk_pcts = dask.array.map_blocks(
-        numpy.nanpercentile,
+        pctile,
         array,
         pcts,
         axis,
         keepdims=True,
+        interpolation=interpolation,
         chunks=chunks,
         meta=numpy.array((), dtype=array.dtype),
     )
@@ -748,6 +765,7 @@ def dask_approx_percentile(array: dask.array.array, pcts, axis: int):
         finalpcts=finalpcts,
         pcts=pcts,
         axis=axis,
+        interpolation=interpolation,
         drop_axis=axis + 1,
         chunks=chunks,
         meta=numpy.array((), dtype=array.dtype),
@@ -762,6 +780,7 @@ def approx_percentile(
     dim: str = None,
     axis: int = None,
     keepdims: bool = False,
+    skipna: bool = True,
 ):
     """
     Return an approximation of the qth percentile along a dimension of da
@@ -780,16 +799,22 @@ def approx_percentile(
         dim: Dimension name to reduce (xarray data only)
         axis: Axis number to reduce
         keepdims: Keep the reduced dimension with size 1
+        skipna: Ignore NaN values (like :func:`numpy.nanpercentile`)
 
     Returns:
         Array of the same type as da, otherwise as :func:`numpy.percentile`
     """
 
+    if skipna:
+        pctile = numpy.nanpercentile
+    else:
+        pctile = numpy.percentile
+
     if isinstance(da, xarray.DataArray) and isinstance(da.data, dask.array.Array):
         # Xarray+Dask
         if axis is None:
             axis = T.cast(int, da.get_axis_num(dim))
-        data = dask_approx_percentile(da.data, pcts=q, axis=axis)
+        data = dask_approx_percentile(da.data, pcts=q, axis=axis, skipna=skipna)
         dims = ["percentile", *[d for i, d in enumerate(da.dims) if i != axis]]
         return xarray.DataArray(
             data,
@@ -800,14 +825,14 @@ def approx_percentile(
 
     if isinstance(da, xarray.DataArray):
         # Xarray+Numpy
-        return da.reduce(numpy.percentile, axis=axis, dim=dim, keepdims=keepdims, q=q)
+        return da.reduce(pctile, axis=axis, dim=dim, keepdims=keepdims, q=q)
 
     assert dim is None
     assert axis is not None
 
     if isinstance(da, dask.array.Array):
         # Dask
-        return dask_approx_percentile(da, pcts=q, axis=axis)
+        return dask_approx_percentile(da, pcts=q, axis=axis, skipna=skipna)
 
     # Other
-    return numpy.percentile(da, q, axis=axis, keepdims=keepdims)
+    return pctile(da, q, axis=axis, keepdims=keepdims)

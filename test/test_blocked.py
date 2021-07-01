@@ -260,3 +260,61 @@ def test_percentile(sample):
         )
 
     numpy.testing.assert_array_equal(a, b)
+
+
+def test_dask_approx_percentile():
+    data = numpy.random.random((500, 100))
+    data[0, 0] = 0
+    data[0, 1] = 1
+    data[0, 2] = numpy.nan
+
+    sample = dask.array.from_array(data, chunks=(100, 10))
+
+    a = dask_approx_percentile(sample, 90, axis=0, skipna=False)
+
+    a = a[0, ...]
+
+    # Compare with applying dask.percentile along the time axis
+    b = numpy.zeros(sample[0].shape)
+    for ii in numpy.ndindex(b.shape):
+        b[ii] = dask.array.percentile(
+            sample[
+                numpy.s_[
+                    :,
+                ]
+                + ii
+            ],
+            90,
+        )[0]
+
+    numpy.testing.assert_array_equal(a, b)
+
+    # Test values are close to numpy with chunking
+    sample = dask.array.from_array(data, chunks=(100, 10))
+
+    # skipna=False works like numpy.percentile
+    a = dask_approx_percentile(sample, 90, axis=0, skipna=False)
+    b = numpy.percentile(data, 90, axis=0)
+
+    numpy.testing.assert_allclose(a[0, ...], b, rtol=0.1)
+
+    # skipna=True works like numpy.nanpercentile
+    a = dask_approx_percentile(sample, 90, axis=0, skipna=True)
+    b = numpy.nanpercentile(data, 90, axis=0)
+
+    numpy.testing.assert_allclose(a[0, ...], b, rtol=0.1)
+
+    # Test values match numpy without chunking
+    sample = dask.array.from_array(data, chunks=data.shape)
+
+    # skipna=True works like numpy.nanpercentile
+    a = dask_approx_percentile(sample, 90, axis=0, skipna=True)
+    b = numpy.nanpercentile(data, 90, axis=0)
+
+    numpy.testing.assert_array_equal(a[0, ...], b)
+
+    # skipna=False works like numpy.percentile
+    a = dask_approx_percentile(sample, 90, axis=0, skipna=False)
+    b = numpy.percentile(data, 90, axis=0)
+
+    numpy.testing.assert_array_equal(a[0, ...], b)
