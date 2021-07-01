@@ -99,11 +99,11 @@ html_theme = "sphinx_book_theme"
 # documentation.
 #
 html_theme_options = {
-        'repository_url': 'https://github.com/ScottWales/climtas',
-        'use_repository_button': True,
-        'use_issues_button': True,
-        'path_to_docs': 'docs',
-        }
+    "repository_url": "https://github.com/ScottWales/climtas",
+    "use_repository_button": True,
+    "use_issues_button": True,
+    "path_to_docs": "docs",
+}
 
 # Add any paths that contain custom static files (such as style sheets) here,
 # relative to this directory. They are copied after the builtin static files,
