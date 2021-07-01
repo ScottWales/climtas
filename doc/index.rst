@@ -16,6 +16,7 @@ Contents
    :maxdepth: 2
    :caption: Contents:
 
+   event
    groupby
    percentile
    regrid
