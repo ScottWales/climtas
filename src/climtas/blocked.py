@@ -24,6 +24,8 @@ import dask.array
 import scipy.stats
 import typing as T
 from typing_extensions import Protocol
+from dask.array.percentile import merge_percentiles
+import numbers
 
 
 class DataArrayFunction(Protocol):
@@ -39,7 +41,7 @@ class NumpyFunction(Protocol):
 
 
 class BlockedResampler:
-    """A blocked resampling operation
+    """A blocked resampling operation, created by :func:`blocked_resample`
 
     Works like :class:`xarray.core.resample.DataarrayResample`, with the
     constraint that the resampling is a regular interval, and that the
@@ -80,7 +82,7 @@ class BlockedResampler:
         if not numpy.array_equal(da.coords[dim], expected_coord):
             raise Exception(f"{dim} has an irregular period")
 
-    def reduce(self, op: NumpyFunction, **kwargs) -> xarray.DataArray:
+    def reduce(self, op: T.Callable, **kwargs) -> xarray.DataArray:
         r"""Apply an arbitrary operation to each resampled group
 
         The function *op* is applied to each group. The grouping axis is given
@@ -147,7 +149,7 @@ class BlockedResampler:
 
     def mean(self) -> xarray.DataArray:
         """Reduce the samples using :func:`numpy.mean`"""
-        return self.reduce(numpy.mean)  # type:ignore
+        return self.reduce(numpy.mean)
 
     def min(self) -> xarray.DataArray:
         """Reduce the samples using :func:`numpy.min`"""
@@ -167,7 +169,7 @@ class BlockedResampler:
 
     def sum(self) -> xarray.DataArray:
         """Reduce the samples using :func:`numpy.sum`"""
-        return self.reduce(numpy.sum)  # type:ignore
+        return self.reduce(numpy.sum)
 
 
 def blocked_resample(da: xarray.DataArray, indexer=None, **kwargs) -> BlockedResampler:
@@ -229,7 +231,7 @@ def blocked_resample(da: xarray.DataArray, indexer=None, **kwargs) -> BlockedRes
 
 
 class BlockedGroupby:
-    """A blocked groupby operation
+    """A blocked groupby operation, created by :func:`blocked_groupby`
 
     Works like :class:`xarray.core.groupby.DataArrayGroupBy`, with the
     constraint that the data contains no partial years
@@ -625,7 +627,7 @@ def blocked_groupby(da: xarray.DataArray, indexer=None, **kwargs) -> BlockedGrou
         indexer/kwargs (Dict[dim, grouping]): Mapping of dimension name to grouping type
 
     Returns:
-        :class:`BlockedResampler`
+        :class:`BlockedGroupby`
     """
     if indexer is None:
         indexer = kwargs
@@ -636,3 +638,201 @@ def blocked_groupby(da: xarray.DataArray, indexer=None, **kwargs) -> BlockedGrou
         return BlockedGroupby(da, dim=dim, grouping=grouping)
     else:
         raise NotImplementedError(f"Grouping {grouping} is not implemented")
+
+
+def _merge_approx_percentile(
+    chunk_pcts, chunk_counts, finalpcts, pcts, axis, interpolation
+):
+    """
+    Merge percentile blocks together
+
+    A Nd implementation of dask.array.percentile.merge_percentiles
+    """
+    # First axis of chunk_pcts is the pct values
+    assert chunk_pcts.shape[0] == len(pcts)
+    # Remainder are the chunk results, stacked along 'axis'
+    assert chunk_pcts.shape[1:] == chunk_counts.shape
+
+    # Do a manual apply along axis, using the size of chunk_counts as it has the original dimensions
+    Ni, Nk = chunk_counts.shape[:axis], chunk_counts.shape[axis + 1 :]
+
+    # Output array has the values for each pct
+    out = numpy.empty((len(finalpcts), *Ni, *Nk), dtype=chunk_pcts.dtype)
+
+    # We have the same percentiles for each chunk
+    pcts = numpy.tile(pcts, (chunk_counts.shape[axis], 1))
+
+    # Loop over the non-axis dimensions of the original array
+    for ii in numpy.ndindex(Ni):
+        for kk in numpy.ndindex(Nk):
+            # Use dask's merge_percentiles
+            out[ii + numpy.s_[...,] + kk] = merge_percentiles(
+                finalpcts,
+                pcts,
+                chunk_pcts[
+                    numpy.s_[
+                        :,
+                    ]
+                    + ii
+                    + numpy.s_[
+                        :,
+                    ]
+                    + kk
+                ].T,
+                Ns=chunk_counts[
+                    ii
+                    + numpy.s_[
+                        :,
+                    ]
+                    + kk
+                ],
+                interpolation=interpolation,
+            )
+
+    return out
+
+
+def dask_approx_percentile(
+    array: dask.array.array,
+    pcts,
+    axis: int,
+    interpolation="linear",
+    skipna=True,
+):
+    """
+    Get the approximate percentiles of a Dask array along 'axis', using the 'dask'
+    method of :func:`dask.array.percentile`.
+
+    Args:
+        array: Dask Nd array
+        pcts: List of percentiles to calculate, within the interval [0,100]
+        axis: Axis to reduce
+        skipna: Ignore NaN values (like :func:`numpy.nanpercentile`) if true
+
+    Returns:
+        Dask array with first axis the percentiles from 'pcts', remaining axes from
+        'array' reduced along 'axis'
+    """
+    if isinstance(pcts, numbers.Number):
+        pcts = [pcts]
+
+    # The chunk sizes with each chunk reduced along 'axis'
+    chunks = list(array.chunks)
+    chunks[axis] = [1 for c in chunks[axis]]
+
+    # Reproduce behaviour of dask.array.percentile, adding in '0' and '100' percentiles
+    finalpcts = pcts.copy()
+    pcts = numpy.pad(pcts, 1, mode="constant")
+    pcts[-1] = 100
+
+    # Add the percentile size to the start of 'chunks'
+    chunks.insert(0, len(pcts))
+
+    if skipna:
+        pctile = numpy.nanpercentile
+    else:
+        pctile = numpy.percentile
+
+    # The percentile of each chunk along 'axis'
+    chunk_pcts = dask.array.map_blocks(
+        pctile,
+        array,
+        pcts,
+        axis,
+        keepdims=True,
+        interpolation=interpolation,
+        chunks=chunks,
+        meta=numpy.array((), dtype=array.dtype),
+    )
+    # The count of each chunk along 'axis'
+    chunk_counts = dask.array.map_blocks(
+        numpy.ma.count,
+        array,
+        axis,
+        keepdims=True,
+        chunks=chunks[1:],
+        meta=numpy.array((), dtype="int64"),
+    )
+
+    # Now change the chunk size to the final size
+    chunks[0] = len(finalpcts)
+    chunks.pop(axis + 1)
+    # Merge the chunks together using Dask's merge_percentiles function
+    merged_pcts = dask.array.map_blocks(
+        _merge_approx_percentile,
+        chunk_pcts,
+        chunk_counts,
+        finalpcts=finalpcts,
+        pcts=pcts,
+        axis=axis,
+        interpolation=interpolation,
+        drop_axis=axis + 1,
+        chunks=chunks,
+        meta=numpy.array((), dtype=array.dtype),
+    )
+
+    return merged_pcts
+
+
+def approx_percentile(
+    da: T.Union[xarray.DataArray, dask.array.Array, numpy.ndarray],
+    q: float,
+    dim: str = None,
+    axis: int = None,
+    keepdims: bool = False,
+    skipna: bool = True,
+):
+    """
+    Return an approximation of the qth percentile along a dimension of da
+
+    For large Dask datasets the approximation will compute much faster than
+    :func:`numpy.percentile`
+
+    If da contains Dask data, it will use Dask's approximate percentile
+    algorithim extended to multiple dimensions, see :func:`dask.array.percentile`
+
+    If da contains Numpy data it will use :func:`numpy.percentile`
+
+    Args:
+        da: Input dataset
+        q: Percentile to calculate in the range [0,100]
+        dim: Dimension name to reduce (xarray data only)
+        axis: Axis number to reduce
+        keepdims: Keep the reduced dimension with size 1
+        skipna: Ignore NaN values (like :func:`numpy.nanpercentile`)
+
+    Returns:
+        Array of the same type as da, otherwise as :func:`numpy.percentile`
+    """
+
+    if skipna:
+        pctile = numpy.nanpercentile
+    else:
+        pctile = numpy.percentile
+
+    if isinstance(da, xarray.DataArray) and isinstance(da.data, dask.array.Array):
+        # Xarray+Dask
+        if axis is None:
+            axis = T.cast(int, da.get_axis_num(dim))
+        data = dask_approx_percentile(da.data, pcts=q, axis=axis, skipna=skipna)
+        dims = ["percentile", *[d for i, d in enumerate(da.dims) if i != axis]]
+        return xarray.DataArray(
+            data,
+            name=da.name,
+            dims=dims,
+            coords={k: v for k, v in da.coords.items() if k in dims},
+        )
+
+    if isinstance(da, xarray.DataArray):
+        # Xarray+Numpy
+        return da.reduce(pctile, axis=axis, dim=dim, keepdims=keepdims, q=q)
+
+    assert dim is None
+    assert axis is not None
+
+    if isinstance(da, dask.array.Array):
+        # Dask
+        return dask_approx_percentile(da, pcts=q, axis=axis, skipna=skipna)
+
+    # Other
+    return pctile(da, q, axis=axis, keepdims=keepdims)

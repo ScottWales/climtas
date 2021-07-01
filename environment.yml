@@ -16,3 +16,5 @@ dependencies:
     - mule
     - sparse
     - black
+    - nbsphinx
+    - sphinx-book-theme

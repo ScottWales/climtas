@@ -9,4 +9,4 @@ from . import regrid
 from . import blocked
 from . import profile
 
-from .blocked import blocked_resample, blocked_groupby
+from .blocked import blocked_resample, blocked_groupby, approx_percentile

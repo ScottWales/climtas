@@ -16,7 +16,6 @@
 from __future__ import print_function
 from abc import ABCMeta, abstractmethod
 
-import six
 import xarray
 import numpy
 import iris
@@ -61,8 +60,7 @@ def identify_grid(dataset):
     raise NotImplementedError
 
 
-@six.add_metaclass(ABCMeta)
-class Grid(object):
+class Grid(object, metaclass=ABCMeta):
     """Abstract base class for grids"""
 
     @abstractmethod

@@ -10,19 +10,27 @@ Climtas is a package for working with large climate analyses. It focuses on the
 time domain with custom functions for `Xarray <https://xarray.pydata.org>`_ and
 `Dask <https://docs.dask.org>`_ data.
 
+Contents
+--------
 .. toctree::
    :maxdepth: 2
    :caption: Contents:
 
-   api
+   groupby
+   resample
+   percentile
+
+
+Reference
+---------
+.. toctree::
+   :caption: Reference:
+
+   api/index
    nci
+   
+   genindex
 
 `Benchmark graphs <_static/asv/index.html>`_
 
 
-Indices and tables
-==================
-
-* :ref:`genindex`
-* :ref:`modindex`
-* :ref:`search`

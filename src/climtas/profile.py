@@ -318,7 +318,7 @@ class Timer:
         exists = os.path.exists(file)
 
         with open(file, "a") as f:
-            writer = csv.DictWriter(f, result.keys())
+            writer = csv.DictWriter(f, list(result.keys()))
 
             if not exists:
                 writer.writeheader()
