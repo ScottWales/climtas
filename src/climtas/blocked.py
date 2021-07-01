@@ -157,7 +157,7 @@ class BlockedResampler:
 
     def max(self) -> xarray.DataArray:
         """Reduce the samples using :func:`numpy.max`"""
-        return self.reduce(numpy.max) 
+        return self.reduce(numpy.max)
 
     def nanmin(self) -> xarray.DataArray:
         """Reduce the samples using :func:`numpy.nanmin`"""
