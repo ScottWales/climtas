@@ -82,7 +82,7 @@ class BlockedResampler:
         if not numpy.array_equal(da.coords[dim], expected_coord):
             raise Exception(f"{dim} has an irregular period")
 
-    def reduce(self, op: NumpyFunction, **kwargs) -> xarray.DataArray:
+    def reduce(self, op: T.Callable, **kwargs) -> xarray.DataArray:
         r"""Apply an arbitrary operation to each resampled group
 
         The function *op* is applied to each group. The grouping axis is given
@@ -149,7 +149,7 @@ class BlockedResampler:
 
     def mean(self) -> xarray.DataArray:
         """Reduce the samples using :func:`numpy.mean`"""
-        return self.reduce(numpy.mean)  # type:ignore
+        return self.reduce(numpy.mean)
 
     def min(self) -> xarray.DataArray:
         """Reduce the samples using :func:`numpy.min`"""
@@ -157,7 +157,7 @@ class BlockedResampler:
 
     def max(self) -> xarray.DataArray:
         """Reduce the samples using :func:`numpy.max`"""
-        return self.reduce(numpy.max)
+        return self.reduce(numpy.max) 
 
     def nanmin(self) -> xarray.DataArray:
         """Reduce the samples using :func:`numpy.nanmin`"""
@@ -169,7 +169,7 @@ class BlockedResampler:
 
     def sum(self) -> xarray.DataArray:
         """Reduce the samples using :func:`numpy.sum`"""
-        return self.reduce(numpy.sum)  # type:ignore
+        return self.reduce(numpy.sum)
 
 
 def blocked_resample(da: xarray.DataArray, indexer=None, **kwargs) -> BlockedResampler:
