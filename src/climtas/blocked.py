@@ -41,7 +41,7 @@ class NumpyFunction(Protocol):
 
 
 class BlockedResampler:
-    """A blocked resampling operation
+    """A blocked resampling operation, created by :func:`blocked_resample`
 
     Works like :class:`xarray.core.resample.DataarrayResample`, with the
     constraint that the resampling is a regular interval, and that the
@@ -231,7 +231,7 @@ def blocked_resample(da: xarray.DataArray, indexer=None, **kwargs) -> BlockedRes
 
 
 class BlockedGroupby:
-    """A blocked groupby operation
+    """A blocked groupby operation, created by :func:`blocked_groupby`
 
     Works like :class:`xarray.core.groupby.DataArrayGroupBy`, with the
     constraint that the data contains no partial years
@@ -627,7 +627,7 @@ def blocked_groupby(da: xarray.DataArray, indexer=None, **kwargs) -> BlockedGrou
         indexer/kwargs (Dict[dim, grouping]): Mapping of dimension name to grouping type
 
     Returns:
-        :class:`BlockedResampler`
+        :class:`BlockedGroupby`
     """
     if indexer is None:
         indexer = kwargs
