@@ -779,7 +779,6 @@ def approx_percentile(
     q: float,
     dim: str = None,
     axis: int = None,
-    keepdims: bool = False,
     skipna: bool = True,
 ):
     """
@@ -798,12 +797,14 @@ def approx_percentile(
         q: Percentile to calculate in the range [0,100]
         dim: Dimension name to reduce (xarray data only)
         axis: Axis number to reduce
-        keepdims: Keep the reduced dimension with size 1
         skipna: Ignore NaN values (like :func:`numpy.nanpercentile`)
 
     Returns:
         Array of the same type as da, otherwise as :func:`numpy.percentile`
     """
+
+    if isinstance(q, numbers.Number):
+        q = [q]
 
     if skipna:
         pctile = numpy.nanpercentile
@@ -816,16 +817,18 @@ def approx_percentile(
             axis = T.cast(int, da.get_axis_num(dim))
         data = dask_approx_percentile(da.data, pcts=q, axis=axis, skipna=skipna)
         dims = ["percentile", *[d for i, d in enumerate(da.dims) if i != axis]]
+        coords = {k: v for k, v in da.coords.items() if k in dims}
+        coords["percentile"] = q
         return xarray.DataArray(
             data,
             name=da.name,
             dims=dims,
-            coords={k: v for k, v in da.coords.items() if k in dims},
+            coords=coords,
         )
 
     if isinstance(da, xarray.DataArray):
         # Xarray+Numpy
-        return da.reduce(pctile, axis=axis, dim=dim, keepdims=keepdims, q=q)
+        return da.quantile([p / 100 for p in q], dim=dim, skipna=skipna)
 
     assert dim is None
     assert axis is not None
@@ -835,4 +838,4 @@ def approx_percentile(
         return dask_approx_percentile(da, pcts=q, axis=axis, skipna=skipna)
 
     # Other
-    return pctile(da, q, axis=axis, keepdims=keepdims)
+    return pctile(da, q, axis=axis)
