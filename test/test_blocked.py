@@ -255,7 +255,7 @@ def test_percentile(sample):
     else:
         b = numpy.percentile(
             sample.data,
-            90,
+            [90],
             axis=0,
         )
 
