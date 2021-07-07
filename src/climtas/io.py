@@ -127,7 +127,7 @@ def to_netcdf_throttled(
         store_keys = tqdm(store_keys)
 
     # Run the 'store_chunk' tasks with 'old_graph'
-    throttle_futures(old_graph, store_keys, max_tasks=None)
+    throttle_futures(old_graph, store_keys, max_tasks=max_tasks)
 
     # Finalise any remaining operations with 'new_graph'
     optimized_dask_get(new_graph, list(f.__dask_layers__()))  # type: ignore
