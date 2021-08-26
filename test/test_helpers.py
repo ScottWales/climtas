@@ -25,26 +25,12 @@ def test_blockwise():
 
     numpy.testing.assert_array_equal(
         df["chunk-location"].sort_values().apply(lambda x: x[0]),
-        numpy.array(
-            [
-                0,
-                0,
-                1,
-                1,
-            ]
-        ),
+        numpy.array([0, 0, 1, 1,]),
     )
 
     numpy.testing.assert_array_equal(
         df["chunk-location"].sort_values().apply(lambda x: x[1]),
-        numpy.array(
-            [
-                0,
-                1,
-                0,
-                1,
-            ]
-        ),
+        numpy.array([0, 1, 0, 1,]),
     )
 
 

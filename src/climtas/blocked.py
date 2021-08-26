@@ -669,23 +669,8 @@ def _merge_approx_percentile(
             out[ii + numpy.s_[...,] + kk] = merge_percentiles(
                 finalpcts,
                 pcts,
-                chunk_pcts[
-                    numpy.s_[
-                        :,
-                    ]
-                    + ii
-                    + numpy.s_[
-                        :,
-                    ]
-                    + kk
-                ].T,
-                Ns=chunk_counts[
-                    ii
-                    + numpy.s_[
-                        :,
-                    ]
-                    + kk
-                ],
+                chunk_pcts[numpy.s_[:,] + ii + numpy.s_[:,] + kk].T,
+                Ns=chunk_counts[ii + numpy.s_[:,] + kk],
                 interpolation=interpolation,
             )
 
@@ -693,11 +678,7 @@ def _merge_approx_percentile(
 
 
 def dask_approx_percentile(
-    array: dask.array.array,
-    pcts,
-    axis: int,
-    interpolation="linear",
-    skipna=True,
+    array: dask.array.array, pcts, axis: int, interpolation="linear", skipna=True,
 ):
     """
     Get the approximate percentiles of a Dask array along 'axis', using the 'dask'
@@ -776,7 +757,7 @@ def dask_approx_percentile(
 
 def approx_percentile(
     da: T.Union[xarray.DataArray, dask.array.Array, numpy.ndarray],
-    q: float,
+    q: T.Union[float, T.List[float]],
     dim: str = None,
     axis: int = None,
     skipna: bool = True,
@@ -803,8 +784,10 @@ def approx_percentile(
         Array of the same type as da, otherwise as :func:`numpy.percentile`
     """
 
-    if isinstance(q, numbers.Number):
-        q = [q]
+    if isinstance(q, float):
+        qlist = [q]
+    else:
+        qlist = q
 
     if skipna:
         pctile = numpy.nanpercentile
@@ -818,17 +801,12 @@ def approx_percentile(
         data = dask_approx_percentile(da.data, pcts=q, axis=axis, skipna=skipna)
         dims = ["percentile", *[d for i, d in enumerate(da.dims) if i != axis]]
         coords = {k: v for k, v in da.coords.items() if k in dims}
-        coords["percentile"] = q
-        return xarray.DataArray(
-            data,
-            name=da.name,
-            dims=dims,
-            coords=coords,
-        )
+        coords["percentile"] = xarray.DataArray(q, dims="percentile")
+        return xarray.DataArray(data, name=da.name, dims=dims, coords=coords,)
 
     if isinstance(da, xarray.DataArray):
         # Xarray+Numpy
-        return da.quantile([p / 100 for p in q], dim=dim, skipna=skipna)
+        return da.quantile([p / 100 for p in qlist], dim=dim, skipna=skipna)
 
     assert dim is None
     assert axis is not None

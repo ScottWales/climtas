@@ -192,8 +192,7 @@ def test_event_values():
     events = find_events(da > 0)
     values = event_values(da_dask, events).compute().sort_values(["time", "event_id"])
     numpy.testing.assert_array_equal(
-        values.to_numpy(),
-        [[0, 0, 9], [1, 0, 8], [2, 1, 3], [3, 1, 2], [4, 2, 7]],
+        values.to_numpy(), [[0, 0, 9], [1, 0, 8], [2, 1, 3], [3, 1, 2], [4, 2, 7]],
     )
 
     # Make sure the values aren't evaluated when using dask
@@ -215,8 +214,7 @@ def test_event_values_dask_nd():
     values = values.compute().sort_values(["time", "event_id"])
 
     numpy.testing.assert_array_equal(
-        values.to_numpy(),
-        [[0, 0, 9], [1, 0, 8], [2, 1, 3], [3, 1, 2], [4, 2, 7]],
+        values.to_numpy(), [[0, 0, 9], [1, 0, 8], [2, 1, 3], [3, 1, 2], [4, 2, 7]],
     )
 
 
@@ -252,6 +250,5 @@ def test_event_values_reduce():
     stats = values.groupby("event_id")["value"].min().compute()
 
     numpy.testing.assert_array_equal(
-        stats.to_numpy(),
-        [2, 8, 7],
+        stats.to_numpy(), [2, 8, 7],
     )
