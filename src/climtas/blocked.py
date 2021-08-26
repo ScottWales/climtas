@@ -669,8 +669,23 @@ def _merge_approx_percentile(
             out[ii + numpy.s_[...,] + kk] = merge_percentiles(
                 finalpcts,
                 pcts,
-                chunk_pcts[numpy.s_[:,] + ii + numpy.s_[:,] + kk].T,
-                Ns=chunk_counts[ii + numpy.s_[:,] + kk],
+                chunk_pcts[
+                    numpy.s_[
+                        :,
+                    ]
+                    + ii
+                    + numpy.s_[
+                        :,
+                    ]
+                    + kk
+                ].T,
+                Ns=chunk_counts[
+                    ii
+                    + numpy.s_[
+                        :,
+                    ]
+                    + kk
+                ],
                 interpolation=interpolation,
             )
 
@@ -678,7 +693,11 @@ def _merge_approx_percentile(
 
 
 def dask_approx_percentile(
-    array: dask.array.array, pcts, axis: int, interpolation="linear", skipna=True,
+    array: dask.array.array,
+    pcts,
+    axis: int,
+    interpolation="linear",
+    skipna=True,
 ):
     """
     Get the approximate percentiles of a Dask array along 'axis', using the 'dask'
@@ -802,7 +821,12 @@ def approx_percentile(
         dims = ["percentile", *[d for i, d in enumerate(da.dims) if i != axis]]
         coords = {k: v for k, v in da.coords.items() if k in dims}
         coords["percentile"] = xarray.DataArray(q, dims="percentile")
-        return xarray.DataArray(data, name=da.name, dims=dims, coords=coords,)
+        return xarray.DataArray(
+            data,
+            name=da.name,
+            dims=dims,
+            coords=coords,
+        )
 
     if isinstance(da, xarray.DataArray):
         # Xarray+Numpy

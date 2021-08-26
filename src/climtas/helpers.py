@@ -33,7 +33,12 @@ These functions are low-level, and mainly intended for internal use
 
 
 def map_blocks_to_delayed(
-    da: xarray.DataArray, func, axis=None, name="blocks-to-delayed", args=[], kwargs={},
+    da: xarray.DataArray,
+    func,
+    axis=None,
+    name="blocks-to-delayed",
+    args=[],
+    kwargs={},
 ) -> T.List[T.Tuple[T.List[int], T.Any]]:
     """
     Run some function 'func' on each dask chunk of 'da'

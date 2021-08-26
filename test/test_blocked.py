@@ -243,9 +243,21 @@ def test_percentile(sample):
 
         b = numpy.zeros(sample[0].shape)
         for ii in numpy.ndindex(b.shape):
-            b[ii] = dask.array.percentile(sample.data[numpy.s_[:,] + ii], 90,)[0]
+            b[ii] = dask.array.percentile(
+                sample.data[
+                    numpy.s_[
+                        :,
+                    ]
+                    + ii
+                ],
+                90,
+            )[0]
     else:
-        b = numpy.percentile(sample.data, [90], axis=0,)
+        b = numpy.percentile(
+            sample.data,
+            [90],
+            axis=0,
+        )
 
     numpy.testing.assert_array_equal(a, b)
 
@@ -265,7 +277,15 @@ def test_dask_approx_percentile():
     # Compare with applying dask.percentile along the time axis
     b = numpy.zeros(sample[0].shape)
     for ii in numpy.ndindex(b.shape):
-        b[ii] = dask.array.percentile(sample[numpy.s_[:,] + ii], 90,)[0]
+        b[ii] = dask.array.percentile(
+            sample[
+                numpy.s_[
+                    :,
+                ]
+                + ii
+            ],
+            90,
+        )[0]
 
     numpy.testing.assert_array_equal(a, b)
 
