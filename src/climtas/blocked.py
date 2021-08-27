@@ -776,7 +776,7 @@ def dask_approx_percentile(
 
 def approx_percentile(
     da: T.Union[xarray.DataArray, dask.array.Array, numpy.ndarray],
-    q: T.Union[float, T.List[float]],
+    q: T.Union[numbers.Real, T.List[numbers.Real]],
     dim: str = None,
     axis: int = None,
     skipna: bool = True,
@@ -803,7 +803,7 @@ def approx_percentile(
         Array of the same type as da, otherwise as :func:`numpy.percentile`
     """
 
-    if isinstance(q, float):
+    if isinstance(q, numbers.Real):
         qlist = [q]
     else:
         qlist = q
@@ -820,7 +820,7 @@ def approx_percentile(
         data = dask_approx_percentile(da.data, pcts=q, axis=axis, skipna=skipna)
         dims = ["percentile", *[d for i, d in enumerate(da.dims) if i != axis]]
         coords = {k: v for k, v in da.coords.items() if k in dims}
-        coords["percentile"] = xarray.DataArray(q, dims="percentile")
+        coords["percentile"] = xarray.DataArray(qlist, dims="percentile")
         return xarray.DataArray(
             data,
             name=da.name,
