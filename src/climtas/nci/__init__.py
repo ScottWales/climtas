@@ -25,7 +25,72 @@ _dask_client = None
 _tmpdir = None
 
 
-def GadiClient(threads=1):
+def Client(threads=1, malloc_trim_threshold=None):
+    """Start a Dask client at NCI
+
+    An appropriate client will be started for the current system
+
+    Args:
+        threads: Number of threads per worker process. The total number of
+            workers will be ncpus/threads, so that each thread gets its own
+            CPU
+        malloc_trim_threshold: Threshold for automatic memory trimming. Can be
+            either a string e.g. '64kib' or a number of bytes e.g. 65536.
+            Smaller values may reduce out of memory errors at the cost of
+            running slower
+
+    https://distributed.dask.org/en/latest/worker.html?highlight=worker#automatically-trim-memory
+    """
+
+    if os.environ["HOSTNAME"].startswith("ood"):
+        return OODClient(threads, malloc_trim_threshold)
+    else:
+        return GadiClient(threads, malloc_trim_threshold)
+
+
+def OODClient(threads=1, malloc_trim_threshold=None):
+    """Start a Dask client on OOD
+
+    This function is mostly to be consistent with the Gadi version
+
+    Args:
+        threads: Number of threads per worker process. The total number of
+            workers will be ncpus/threads, so that each thread gets its own
+            CPU
+        malloc_trim_threshold: Threshold for automatic memory trimming. Can be
+            either a string e.g. '64kib' or a number of bytes e.g. 65536.
+            Smaller values may reduce out of memory errors at the cost of
+            running slower
+
+    https://distributed.dask.org/en/latest/worker.html?highlight=worker#automatically-trim-memory
+    """
+    global _dask_client, _tmpdir
+
+    env = {}
+
+    if malloc_trim_threshold is not None:
+        env["MALLOC_TRIM_THRESHOLD_"] = str(
+            dask.utils.parse_bytes(malloc_trim_threshold)
+        )
+
+    if _dask_client is None:
+        try:
+            # Works in sidebar and can follow the link
+            dask.config.set(
+                {
+                    "distributed.dashboard.link": f'/node/{os.environ["host"]}/{os.environ["port"]}/proxy/{{port}}/status'
+                }
+            )
+        except KeyError:
+            # Works in sidebar, but can't follow the link
+            dask.config.set({"distributed.dashboard.link": "/proxy/{port}/status"})
+
+        _dask_client = dask.distributed.Client(threads_per_worker=threads, env=env)
+
+    return _dask_client
+
+
+def GadiClient(threads=1, malloc_trim_threshold=None):
     """Start a Dask client on Gadi
 
     If run on a compute node it will check the PBS resources to know how many
@@ -33,8 +98,26 @@ def GadiClient(threads=1):
 
     If run on a login node it will ask for 2 workers each with a 1GB memory
     limit
+
+    Args:
+        threads: Number of threads per worker process. The total number of
+            workers will be $PBS_NCPUS/threads, so that each thread gets its own
+            CPU
+        malloc_trim_threshold: Threshold for automatic memory trimming. Can be
+            either a string e.g. '64kib' or a number of bytes e.g. 65536.
+            Smaller values may reduce out of memory errors at the cost of
+            running slower
+
+    https://distributed.dask.org/en/latest/worker.html?highlight=worker#automatically-trim-memory
     """
     global _dask_client, _tmpdir
+
+    env = {}
+
+    if malloc_trim_threshold is not None:
+        env["MALLOC_TRIM_THRESHOLD_"] = str(
+            dask.utils.parse_bytes(malloc_trim_threshold)
+        )
 
     if _dask_client is None:
         _tmpdir = tempfile.TemporaryDirectory("dask-worker-space")
@@ -45,6 +128,7 @@ def GadiClient(threads=1):
                 threads_per_worker=threads,
                 memory_limit="1000mb",
                 local_directory=_tmpdir.name,
+                env=env,
             )
         else:
             workers = int(os.environ["PBS_NCPUS"]) // threads
@@ -53,5 +137,6 @@ def GadiClient(threads=1):
                 threads_per_worker=threads,
                 memory_limit=int(os.environ["PBS_VMEM"]) / workers,
                 local_directory=_tmpdir.name,
+                env=env,
             )
     return _dask_client

@@ -135,7 +135,7 @@ class LonLatGrid(Grid):
     def to_netcdf(self, outfile):
         ds = xarray.DataArray(
             data=numpy.zeros((len(self.lats), len(self.lons))),
-            coords=[("lat", self.lats), ("lon", self.lons)],
+            coords=[("lat", self.lats.data), ("lon", self.lons.data)],
         )
         ds.lat.attrs["units"] = "degrees_north"
         ds.lon.attrs["units"] = "degrees_east"
