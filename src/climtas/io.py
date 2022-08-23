@@ -58,7 +58,7 @@ def _ds_encoding(ds, complevel):
         }
 
         # Log removed keys
-        removed_keys = [k for k in v.encoding.keys() if not k in encoding[k].keys()]
+        removed_keys = [kk for kk in v.encoding.keys() if not kk in encoding[k].keys()]
         if len(removed_keys) > 0:
             logging.debug(f"removed encoding keys for {k}: {removed_keys}")
     return encoding
