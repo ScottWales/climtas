@@ -25,6 +25,7 @@ import dask
 import pandas
 import typing as T
 import pathlib
+import logging
 
 from .helpers import optimized_dask_get, throttle_futures
 
@@ -32,8 +33,13 @@ from .helpers import optimized_dask_get, throttle_futures
 def _ds_encoding(ds, complevel):
     # Setup compression and chunking
     encoding = {}
+    logging.basicConfig(level=logging.DEBUG)
     for k, v in ds.data_vars.items():
+
+        # Get original encoding
         encoding[k] = v.encoding
+
+        # Update encoding to enable compression
         encoding[k].update(
             {
                 "zlib": True,
@@ -42,6 +48,19 @@ def _ds_encoding(ds, complevel):
                 "chunksizes": getattr(v.data, "chunksize", None),
             }
         )
+
+        # Clean up encoding
+        encoding[k] = {
+            kk: vv for kk, vv in encoding[k].items()
+            if kk in ['fletcher32', 'chunksizes', 'complevel', 
+                      'least_significant_digit', 'shuffle', 
+                      'contiguous', 'zlib', '_FillValue', 'dtype']
+        }
+
+        # Log removed keys
+        removed_keys = [kk for kk in v.encoding.keys() if not kk in encoding[k].keys()]
+        if len(removed_keys) > 0:
+            logging.debug(f"removed encoding keys for {k}: {removed_keys}")
     return encoding
 
 
