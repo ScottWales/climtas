@@ -51,10 +51,20 @@ def _ds_encoding(ds, complevel):
 
         # Clean up encoding
         encoding[k] = {
-            kk: vv for kk, vv in encoding[k].items()
-            if kk in ['fletcher32', 'chunksizes', 'complevel', 
-                      'least_significant_digit', 'shuffle', 
-                      'contiguous', 'zlib', '_FillValue', 'dtype']
+            kk: vv
+            for kk, vv in encoding[k].items()
+            if kk
+            in [
+                "fletcher32",
+                "chunksizes",
+                "complevel",
+                "least_significant_digit",
+                "shuffle",
+                "contiguous",
+                "zlib",
+                "_FillValue",
+                "dtype",
+            ]
         }
 
         # Log removed keys

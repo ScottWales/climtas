@@ -640,9 +640,7 @@ def blocked_groupby(da: xarray.DataArray, indexer=None, **kwargs) -> BlockedGrou
         raise NotImplementedError(f"Grouping {grouping} is not implemented")
 
 
-def _merge_approx_percentile(
-    chunk_pcts, chunk_counts, finalpcts, pcts, axis, interpolation
-):
+def _merge_approx_percentile(chunk_pcts, chunk_counts, finalpcts, pcts, axis, method):
     """
     Merge percentile blocks together
 
@@ -686,7 +684,7 @@ def _merge_approx_percentile(
                     ]
                     + kk
                 ],
-                interpolation=interpolation,
+                method=method,
             )
 
     return out
@@ -740,7 +738,7 @@ def dask_approx_percentile(
         pcts,
         axis,
         keepdims=True,
-        interpolation=interpolation,
+        method=interpolation,
         chunks=chunks,
         meta=numpy.array((), dtype=array.dtype),
     )
@@ -765,7 +763,7 @@ def dask_approx_percentile(
         finalpcts=finalpcts,
         pcts=pcts,
         axis=axis,
-        interpolation=interpolation,
+        method=interpolation,
         drop_axis=axis + 1,
         chunks=chunks,
         meta=numpy.array((), dtype=array.dtype),
@@ -776,7 +774,7 @@ def dask_approx_percentile(
 
 def approx_percentile(
     da: T.Union[xarray.DataArray, dask.array.Array, numpy.ndarray],
-    q: T.Union[numbers.Real, T.List[numbers.Real]],
+    q,  # T.Union[numbers.Real, T.List[numbers.Real]]
     dim: str = None,
     axis: int = None,
     skipna: bool = True,
