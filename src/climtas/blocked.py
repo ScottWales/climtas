@@ -641,7 +641,7 @@ def blocked_groupby(da: xarray.DataArray, indexer=None, **kwargs) -> BlockedGrou
 
 
 def _merge_approx_percentile(
-    chunk_pcts, chunk_counts, finalpcts, pcts, axis, interpolation
+    chunk_pcts, chunk_counts, finalpcts, pcts, axis, method
 ):
     """
     Merge percentile blocks together
@@ -686,7 +686,7 @@ def _merge_approx_percentile(
                     ]
                     + kk
                 ],
-                method=interpolation,
+                method=method,
             )
 
     return out

@@ -118,7 +118,7 @@ def graph_sizes(arr: dask.array.Array) -> T.Dict[T.Hashable, T.Dict]:
     >>> a = dask.array.zeros((10,10), chunks=(5,5))
     >>> sizes = graph_sizes(a)
     >>> dask.dot.to_graphviz(a.dask, data_attributes=sizes) # doctest: +ELLIPSIS
-    <graphviz.dot.Digraph object ...>
+    <graphviz.graphs.Digraph object ...>
 
     Note: All nodes will be computed to calculate the size
     """
