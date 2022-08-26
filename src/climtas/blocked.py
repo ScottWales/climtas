@@ -686,7 +686,7 @@ def _merge_approx_percentile(
                     ]
                     + kk
                 ],
-                interpolation=interpolation,
+                method=interpolation,
             )
 
     return out
@@ -740,7 +740,7 @@ def dask_approx_percentile(
         pcts,
         axis,
         keepdims=True,
-        interpolation=interpolation,
+        method=interpolation,
         chunks=chunks,
         meta=numpy.array((), dtype=array.dtype),
     )
@@ -765,7 +765,7 @@ def dask_approx_percentile(
         finalpcts=finalpcts,
         pcts=pcts,
         axis=axis,
-        interpolation=interpolation,
+        method=interpolation,
         drop_axis=axis + 1,
         chunks=chunks,
         meta=numpy.array((), dtype=array.dtype),
