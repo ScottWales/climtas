@@ -271,7 +271,7 @@ def map_blocks_array_to_dataframe(
     >>> map_blocks_array_to_dataframe(func, da, meta=meta) # doctest: +NORMALIZE_WHITESPACE
     Dask DataFrame Structure:
                       mean
-    npartitions=4         
+    npartitions=4
                    float64
                        ...
                        ...

@@ -640,9 +640,7 @@ def blocked_groupby(da: xarray.DataArray, indexer=None, **kwargs) -> BlockedGrou
         raise NotImplementedError(f"Grouping {grouping} is not implemented")
 
 
-def _merge_approx_percentile(
-    chunk_pcts, chunk_counts, finalpcts, pcts, axis, method
-):
+def _merge_approx_percentile(chunk_pcts, chunk_counts, finalpcts, pcts, axis, method):
     """
     Merge percentile blocks together
 
