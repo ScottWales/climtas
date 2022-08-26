@@ -774,7 +774,7 @@ def dask_approx_percentile(
 
 def approx_percentile(
     da: T.Union[xarray.DataArray, dask.array.Array, numpy.ndarray],
-    q, # T.Union[numbers.Real, T.List[numbers.Real]]
+    q,  # T.Union[numbers.Real, T.List[numbers.Real]]
     dim: str = None,
     axis: int = None,
     skipna: bool = True,
